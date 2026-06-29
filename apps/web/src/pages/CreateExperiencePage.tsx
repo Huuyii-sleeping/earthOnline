@@ -23,9 +23,9 @@ import {
   generateSummary,
   type ConversationSummary,
 } from "@/features/agent/conversationApi";
+import { generateMedal as generateMedalApi } from "@/features/medals/medalApi";
 import {
   createMockMedalDraft,
-  generateMedalDraftWithAgent,
 } from "@/features/medals/medalGenerator";
 import {
   useAgentRuntimeConfigStore,
@@ -226,21 +226,34 @@ export default function CreateExperiencePage() {
     setError(null);
     setIsGeneratingMedal(true);
 
-    const transcriptMessages = messages
-      .filter((item) => item.id !== "agent-welcome")
-      .map((item) => ({ role: item.role, content: item.content }));
-
     try {
-      // Try Agent-based generation first (if runtime config available)
-      if (runtimeConfig.isConfigured) {
-        const draft = await generateMedalDraftWithAgent(runtimeConfig, transcriptMessages);
+      if (experience && sessionId) {
+        // Call Go API to generate medal via Agent service
+        const medal = await generateMedalApi(experience.id, sessionId);
+
+        // Convert API medal to draft format for preview
+        const draft: MedalDraft = {
+          title: medal.title,
+          summary: medal.short_reason,
+          detail: medal.short_reason,
+          tags: [medal.memory_weight],
+          visibility: medal.visibility as MedalVisibility,
+          source: "agent",
+        };
         setMedalDraft(draft);
       } else {
-        // Fallback to mock
+        // Fallback to mock if no session yet
+        const transcriptMessages = messages
+          .filter((item) => item.id !== "agent-welcome")
+          .map((item) => ({ role: item.role, content: item.content }));
         const draft = createMockMedalDraft(transcriptMessages);
         setMedalDraft(draft);
       }
     } catch (err) {
+      // Fallback to mock on error
+      const transcriptMessages = messages
+        .filter((item) => item.id !== "agent-welcome")
+        .map((item) => ({ role: item.role, content: item.content }));
       const fallbackDraft = createMockMedalDraft(transcriptMessages);
       setMedalDraft(fallbackDraft);
       setError(

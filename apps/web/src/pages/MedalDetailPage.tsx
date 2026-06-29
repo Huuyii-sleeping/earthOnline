@@ -1,7 +1,23 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Award, Eye, EyeOff, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Award,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  getMedal,
+  updateMedal,
+  regenerateMeaning,
+  listMedalVersions,
+} from "@/features/medals/medalApi";
 import { useMedalStore } from "@/features/medals/medalStore";
+import type { Medal, MedalVersion } from "@earth-online/shared";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -13,12 +29,52 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const memoryWeightLabels: Record<string, string> = {
+  light: "轻盈记忆",
+  medium: "有意义的经历",
+  heavy: "重要人生节点",
+};
+
 export default function MedalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const medal = useMedalStore((state) => (id ? state.getMedal(id) : undefined));
   const removeMedal = useMedalStore((state) => state.removeMedal);
-  const updateVisibility = useMedalStore((state) => state.updateVisibility);
+
+  const [medal, setMedal] = useState<Medal | null>(null);
+  const [versions, setVersions] = useState<MedalVersion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    loadMedal(id);
+  }, [id]);
+
+  const loadMedal = async (medalId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [medalData, versionData] = await Promise.all([
+        getMedal(medalId),
+        listMedalVersions(medalId).catch(() => []),
+      ]);
+      setMedal(medalData);
+      setVersions(versionData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!medal) {
     return (
@@ -37,7 +93,36 @@ export default function MedalDetailPage() {
     );
   }
 
+  const handleToggleVisibility = async () => {
+    if (!medal) return;
+    try {
+      const updated = await updateMedal(medal.id, {
+        visibility: medal.visibility === "public" ? "private" : "public",
+      });
+      setMedal(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新失败");
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!medal || isRegenerating) return;
+    setIsRegenerating(true);
+    setError(null);
+    try {
+      const updated = await regenerateMeaning(medal.id);
+      setMedal(updated);
+      const newVersions = await listMedalVersions(medal.id);
+      setVersions(newVersions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "重生成失败");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const handleDelete = () => {
+    if (!medal) return;
     removeMedal(medal.id);
     navigate("/profile", { replace: true });
   };
@@ -50,6 +135,12 @@ export default function MedalDetailPage() {
           返回个人主页
         </Link>
       </Button>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
@@ -73,43 +164,46 @@ export default function MedalDetailPage() {
                   </>
                 )}
               </span>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{medal.summary}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {medal.tags.map((tag) => (
-                <span key={tag} className="rounded-full border px-2 py-0.5 text-xs">
-                  {tag}
+              {medal.edited_by_user && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  已编辑
                 </span>
-              ))}
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {medal.short_reason}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full border px-2 py-0.5 text-xs">
+                {memoryWeightLabels[medal.memory_weight] || medal.memory_weight}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="mt-8 grid gap-4">
           <div className="rounded-md bg-muted p-4">
-            <p className="text-xs font-medium text-muted-foreground">具体情节</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{medal.detail}</p>
+            <p className="text-xs font-medium text-muted-foreground">获得时间</p>
+            <p className="mt-2 text-sm">{formatDate(medal.created_at)}</p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          {medal.image_url && (
             <div className="rounded-md bg-muted p-4">
-              <p className="text-xs font-medium text-muted-foreground">获得时间</p>
-              <p className="mt-2 text-sm">{formatDate(medal.createdAt)}</p>
+              <p className="text-xs font-medium text-muted-foreground">奖章图片</p>
+              <img
+                src={medal.image_url}
+                alt={medal.title}
+                className="mt-2 max-h-48 rounded-lg border"
+              />
             </div>
-            <div className="rounded-md bg-muted p-4">
-              <p className="text-xs font-medium text-muted-foreground">生成来源</p>
-              <p className="mt-2 text-sm">{medal.source === "agent" ? "Agent 生成" : "本地规则生成"}</p>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3 border-t pt-5">
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              updateVisibility(medal.id, medal.visibility === "public" ? "private" : "public")
-            }
+            onClick={handleToggleVisibility}
           >
             {medal.visibility === "public" ? (
               <>
@@ -123,12 +217,75 @@ export default function MedalDetailPage() {
               </>
             )}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleRegenerate}
+            disabled={isRegenerating}
+          >
+            {isRegenerating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            意义重生成
+          </Button>
           <Button type="button" variant="outline" onClick={handleDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             删除奖章
           </Button>
         </div>
       </div>
+
+      {/* 版本历史 */}
+      {versions.length > 0 && (
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h2 className="text-sm font-semibold">版本历史</h2>
+          <div className="mt-4 space-y-3">
+            {versions.map((version) => (
+              <div
+                key={version.id}
+                className={`rounded-md border p-3 ${
+                  medal.current_version_id === version.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{version.title}</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {version.version_type === "initial"
+                        ? "初始版本"
+                        : version.version_type === "user_edit"
+                          ? "用户编辑"
+                          : version.version_type === "meaning_regeneration"
+                            ? "意义重生成"
+                            : version.version_type}
+                    </span>
+                    {medal.current_version_id === version.id && (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                        当前版本
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(version.created_at)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {version.short_reason}
+                </p>
+                {version.meaning_focus && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    意义重心：{version.meaning_focus}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

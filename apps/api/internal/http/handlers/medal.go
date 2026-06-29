@@ -338,7 +338,7 @@ func (h *MedalHandler) RegenerateMeaning(c *gin.Context) {
 	// Create new version
 	newVersion := database.MedalVersion{
 		MedalID:      medal.ID,
-		VersionType:  "meaning_regenerate",
+		VersionType:  "meaning_regeneration",
 		Title:        agentResp.Title,
 		ShortReason:  agentResp.ShortReason,
 		MeaningFocus: &agentResp.MeaningFocus,
