@@ -97,6 +97,95 @@ func (c *Client) StreamSession(ctx context.Context, sessionID string) (io.ReadCl
 	return resp.Body, nil
 }
 
+// GenerateMedalRequest is the payload sent to the Agent for medal generation.
+type GenerateMedalRequest struct {
+	SessionID   string                 `json:"session_id"`
+	Experience  string                 `json:"experience,omitempty"`
+	History     []HistoryItem           `json:"history,omitempty"`
+	Direction   string                 `json:"direction,omitempty"`
+	UserInput   string                 `json:"user_input,omitempty"`
+}
+
+type HistoryItem struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// GenerateMedalResponse is what the Agent returns after generating a medal.
+type GenerateMedalResponse struct {
+	Title        string `json:"title"`
+	ShortReason  string `json:"shortReason"`
+	MemoryWeight string `json:"memoryWeight"`
+	MeaningFocus string `json:"meaningFocus"`
+	Story        string `json:"story"`
+}
+
+// GenerateMedal asks the Agent to generate a medal from conversation history.
+func (c *Client) GenerateMedal(ctx context.Context, req *GenerateMedalRequest) (*GenerateMedalResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/medals/generate"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("agent medal generation returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var result GenerateMedalResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode medal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RegenerateMeaning asks the Agent to regenerate the meaning focus of a medal.
+func (c *Client) RegenerateMeaning(ctx context.Context, req *GenerateMedalRequest) (*GenerateMedalResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/medals/regenerate-meaning"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("agent meaning regeneration returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var result GenerateMedalResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GenerateSummary asks the Agent to produce a pre-generation summary of the conversation.
 func (c *Client) GenerateSummary(ctx context.Context, sessionID string) (json.RawMessage, error) {
 	url := c.baseURL + "/sessions/" + sessionID + "/summary"

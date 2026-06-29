@@ -33,6 +33,7 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	userHandler := handlers.NewUserHandler(db, logger)
 	experienceHandler := handlers.NewExperienceHandler(db, logger)
 	conversationHandler := handlers.NewConversationHandler(db, agentClient, logger)
+	medalHandler := handlers.NewMedalHandler(db, agentClient, logger)
 
 	api := r.Group("/api/v1")
 
@@ -67,5 +68,14 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 
 		// Agent SSE proxy
 		authRequired.GET("/agent/sessions/:id/stream", conversationHandler.StreamSession)
+
+		// Medals
+		authRequired.POST("/experiences/:id/medals/generate", medalHandler.GenerateMedal)
+		authRequired.GET("/medals", medalHandler.ListMedals)
+		authRequired.GET("/medals/:id", medalHandler.GetMedal)
+		authRequired.PUT("/medals/:id", medalHandler.UpdateMedal)
+		authRequired.POST("/medals/:id/regenerate/meaning", medalHandler.RegenerateMeaning)
+		authRequired.GET("/medals/:id/versions", medalHandler.ListVersions)
+		authRequired.POST("/medals/:id/versions/:vid/restore", medalHandler.RestoreVersion)
 	}
 }
