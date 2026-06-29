@@ -1,0 +1,40 @@
+{
+  "name": "earth-online",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @earth-online/web --filter @earth-online/agent dev",
+    "dev:web": "pnpm --filter @earth-online/web dev",
+    "dev:agent": "pnpm --filter @earth-online/agent dev",
+    "build": "pnpm -r --if-present build",
+    "build:web": "pnpm --filter @earth-online/web build",
+    "build:agent": "pnpm --filter @earth-online/agent build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "commitlint": "commitlint --edit"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,css,html,yml,yaml}": [
+      "prettier --write"
+    ],
+    "apps/api/**/*.go": [
+      "gofmt -w"
+    ]
+  }
+}

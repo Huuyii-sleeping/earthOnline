@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>经历成就官 - 创意方案展示</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17201b;
+        --muted: #647069;
+        --line: #dce4dd;
+        --paper: #fbfaf5;
+        --panel: #ffffff;
+        --sage: #6f8f72;
+        --mint: #dff0e2;
+        --coral: #e9785f;
+        --gold: #d5a63a;
+        --blue: #5876a3;
+        --shadow: 0 18px 60px rgba(36, 43, 38, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(180deg, rgba(223, 240, 226, 0.55), rgba(251, 250, 245, 0) 360px),
+          var(--paper);
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .page {
+        min-height: 100vh;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 1px solid rgba(220, 228, 221, 0.75);
+        background: rgba(251, 250, 245, 0.86);
+        backdrop-filter: blur(16px);
+      }
+
+      .nav-inner {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 64px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: conic-gradient(
+          from 130deg,
+          var(--sage),
+          var(--gold),
+          var(--coral),
+          var(--blue),
+          var(--sage)
+        );
+        box-shadow: 0 8px 22px rgba(111, 143, 114, 0.28);
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .hero {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        min-height: 620px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+        align-items: center;
+        gap: 56px;
+        padding: 58px 0 42px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--sage);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 22px 0 18px;
+        font-size: clamp(44px, 7vw, 78px);
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .lead {
+        max-width: 700px;
+        margin: 0;
+        color: #435047;
+        font-size: 20px;
+        line-height: 1.75;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .button {
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .button.primary {
+        background: var(--ink);
+        color: white;
+      }
+
+      .button.secondary {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .phone {
+        justify-self: end;
+        width: min(100%, 386px);
+        border: 1px solid rgba(23, 32, 27, 0.12);
+        border-radius: 36px;
+        padding: 14px;
+        background: #1c221e;
+        box-shadow: var(--shadow);
+      }
+
+      .phone-screen {
+        min-height: 612px;
+        border-radius: 26px;
+        overflow: hidden;
+        background: #f7f5ef;
+      }
+
+      .app-top {
+        padding: 24px 20px 16px;
+        color: white;
+        background:
+          linear-gradient(rgba(23, 32, 27, 0.15), rgba(23, 32, 27, 0.28)),
+          url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80");
+        background-size: cover;
+        background-position: center;
+      }
+
+      .app-status {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        opacity: 0.9;
+      }
+
+      .app-title {
+        margin-top: 34px;
+      }
+
+      .app-title strong {
+        display: block;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .app-title span {
+        display: block;
+        margin-top: 8px;
+        font-size: 13px;
+        opacity: 0.9;
+      }
+
+      .chat {
+        padding: 18px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .bubble {
+        max-width: 88%;
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .bubble.agent {
+        background: white;
+        border: 1px solid var(--line);
+      }
+
+      .bubble.user {
+        justify-self: end;
+        background: var(--mint);
+      }
+
+      .medal-card {
+        margin: 6px 18px 18px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: white;
+      }
+
+      .medal-main {
+        display: grid;
+        grid-template-columns: 86px 1fr;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .medal {
+        width: 86px;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 34% 30%, #fff6c9 0 15%, transparent 16%),
+          conic-gradient(from 20deg, #d9aa3d, #efcf77, #b87b2d, #d9aa3d);
+        border: 7px solid #f4d98d;
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55);
+      }
+
+      .medal svg {
+        width: 40px;
+        height: 40px;
+        color: #6b4517;
+      }
+
+      .medal-copy h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .medal-copy p {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .weight {
+        display: inline-flex;
+        margin-top: 10px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: #fff4d6;
+        color: #8a6417;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      section {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 62px 0;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 26px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(30px, 4vw, 46px);
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .section-head p {
+        max-width: 430px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid.four {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .card {
+        min-height: 190px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 18px;
+        background: var(--mint);
+        color: var(--sage);
+      }
+
+      .icon svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid var(--line);
+        background: white;
+      }
+
+      .step {
+        padding: 24px;
+        min-height: 210px;
+        border-right: 1px solid var(--line);
+      }
+
+      .step:last-child {
+        border-right: 0;
+      }
+
+      .step-num {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: var(--ink);
+        font-weight: 800;
+        margin-bottom: 26px;
+      }
+
+      .showcase {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+      }
+
+      .panel img {
+        width: 100%;
+        height: 250px;
+        object-fit: cover;
+        display: block;
+      }
+
+      .panel-body {
+        padding: 22px;
+      }
+
+      .panel-body h3 {
+        margin: 0 0 10px;
+        font-size: 22px;
+      }
+
+      .panel-body p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .value-band {
+        width: 100%;
+        margin: 40px 0 0;
+        background: #17201b;
+        color: white;
+      }
+
+      .value-inner {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 62px 0;
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 36px;
+        align-items: start;
+      }
+
+      .value-inner h2 {
+        color: white;
+      }
+
+      .value-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .value-item {
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .value-item strong {
+        display: block;
+        margin-bottom: 7px;
+      }
+
+      .value-item span {
+        color: rgba(255, 255, 255, 0.72);
+        line-height: 1.7;
+      }
+
+      .footer {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 34px 0 46px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      @media (max-width: 900px) {
+        .nav-links {
+          display: none;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          min-height: auto;
+        }
+
+        .phone {
+          justify-self: center;
+        }
+
+        .section-head,
+        .value-inner,
+        .showcase {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+
+        .grid.three,
+        .grid.four,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .step {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .step:last-child {
+          border-bottom: 0;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .hero,
+        section,
+        .nav-inner,
+        .value-inner,
+        .footer {
+          width: min(100% - 24px, 1120px);
+        }
+
+        .lead {
+          font-size: 17px;
+        }
+
+        .phone-screen {
+          min-height: 560px;
+        }
+
+        .medal-main {
+          grid-template-columns: 72px 1fr;
+        }
+
+        .medal {
+          width: 72px;
+        }
+
+        .footer {
+          display: grid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="nav" aria-label="主导航">
+        <div class="nav-inner">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 3l2.4 5 5.5.8-4 3.9.9 5.5L12 15.6 7.2 18.2l.9-5.5-4-3.9 5.5-.8L12 3z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            <span>经历成就官</span>
+          </div>
+          <div class="nav-links">
+            <a href="#idea">创意介绍</a>
+            <a href="#users">目标用户</a>
+            <a href="#flow">产品流程</a>
+            <a href="#value">价值意义</a>
+          </div>
+        </div>
+      </nav>
+
+      <main>
+        <header class="hero">
+          <div>
+            <span class="eyebrow">生活娱乐赛道 · AI 经历奖章</span>
+            <h1>把真实经历变成值得展示的个人奖章</h1>
+            <p class="lead">
+              经历成就官是一个通过 AI
+              对话、语音和图片输入来理解用户真实生活经历的产品。它会提炼经历里的行动、情绪和意义，生成一枚专属奖章，并沉淀成个人时间线与社交展示内容。
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#flow">查看产品流程</a>
+              <a class="button secondary" href="#value">了解创意价值</a>
+            </div>
+          </div>
+
+          <div class="phone" aria-label="产品界面示意">
+            <div class="phone-screen">
+              <div class="app-top">
+                <div class="app-status">
+                  <span>今天的经历</span>
+                  <span>21:45</span>
+                </div>
+                <div class="app-title">
+                  <strong>和 Agent 复盘你的高光时刻</strong>
+                  <span>文字、语音、图片都可以成为奖章线索</span>
+                </div>
+              </div>
+              <div class="chat">
+                <div class="bubble agent">
+                  今天最想被记住的是哪一件事？我会帮你把它整理成一枚奖章。
+                </div>
+                <div class="bubble user">
+                  我第一次一个人完成了线下分享，虽然很紧张，但最后讲完了。
+                </div>
+                <div class="bubble agent">
+                  我听到的是一次从紧张到完成的突破。你更想记住“勇敢上台”，还是“坚持讲完”？
+                </div>
+              </div>
+              <div class="medal-card">
+                <div class="medal-main">
+                  <div class="medal" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                      <path
+                        d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="medal-copy">
+                    <h3>灯下开口者</h3>
+                    <p>授予那个带着紧张走上台，却没有放弃表达的你。</p>
+                    <span class="weight">中量记忆</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section id="idea">
+          <div class="section-head">
+            <h2>创意介绍</h2>
+            <p>这个产品不只是记录生活，而是把经历提炼成可以收藏、回看和展示的个人成就。</p>
+          </div>
+          <div class="grid three">
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 5h16v11H7l-3 3V5z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <h3>创意名称</h3>
+              <p>
+                经历成就官。用户把一天中的真实经历告诉
+                Agent，系统自动提炼重点，并生成贴合经历的专属奖章。
+              </p>
+            </article>
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 21s7-4.4 7-11a7 7 0 0 0-14 0c0 6.6 7 11 7 11z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M12 10.5h.01"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <h3>想解决的问题</h3>
+              <p>
+                很多人的经历散落在相册、聊天记录和备忘录里，难以被整理成有意义的个人记忆，也缺少即时成就感。
+              </p>
+            </article>
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 3v18M4 8h16M6 16h12"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <h3>产品形态</h3>
+              <p>
+                一个 App / 网站产品，支持文字、语音和图片输入，通过 AI Agent
+                对话生成奖章、详情故事和个人成就档案。
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="users">
+          <div class="section-head">
+            <h2>目标用户及痛点</h2>
+            <p>面向所有希望记录生活、展示成长、获得成就感的普通用户。</p>
+          </div>
+          <div class="showcase">
+            <div class="panel">
+              <img
+                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80"
+                alt="用户在电脑前记录经历"
+              />
+              <div class="panel-body">
+                <h3>使用场景</h3>
+                <p>
+                  旅行后、聚会后、完成一次挑战后、情绪低落但仍然坚持完成事情后，用户都可以打开产品，把经历告诉
+                  Agent。
+                </p>
+              </div>
+            </div>
+            <div class="panel">
+              <img
+                src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80"
+                alt="朋友一起交流生活经历"
+              />
+              <div class="panel-body">
+                <h3>当前痛点</h3>
+                <p>
+                  没有这个产品时，用户只能发朋友圈或写备忘录。内容容易零散，也很难长期形成个人成长轨迹和可展示的成就资产。
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="flow">
+          <div class="section-head">
+            <h2>核心流程</h2>
+            <p>从讲述经历到生成奖章，流程保持简单，让用户在几分钟内获得一个有意义的结果。</p>
+          </div>
+          <div class="flow">
+            <article class="step">
+              <div class="step-num">1</div>
+              <h3>上传经历</h3>
+              <p>用户通过文字、语音或图片输入今天的所见、所做、所想。</p>
+            </article>
+            <article class="step">
+              <div class="step-num">2</div>
+              <h3>Agent 追问</h3>
+              <p>Agent 像采访者一样追问关键细节，理解经历背后的情绪和意义。</p>
+            </article>
+            <article class="step">
+              <div class="step-num">3</div>
+              <h3>生成奖章</h3>
+              <p>系统生成奖章图、奖章名称、授奖理由、记忆重量和经历摘要。</p>
+            </article>
+            <article class="step">
+              <div class="step-num">4</div>
+              <h3>沉淀展示</h3>
+              <p>奖章进入个人主页、时间线和社交流，用户决定公开哪些内容。</p>
+            </article>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>核心功能</h2>
+            <p>第一版聚焦经历成就系统，先把“记录到奖章”的闭环做完整。</p>
+          </div>
+          <div class="grid four">
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.1L12 17.1 6.4 20l1.1-6.1L3 9.6l6.2-.9L12 3z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                </svg>
+              </div>
+              <h3>专属奖章</h3>
+              <p>每段经历生成一枚主奖章，主题由 Agent 根据真实内容判断。</p>
+            </article>
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <h3>经历详情</h3>
+              <p>点击奖章后查看完整情节、关键时刻、Agent 提炼的意义和原始素材。</p>
+            </article>
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <h3>个人档案</h3>
+              <p>奖章墙、时间线和成长关键词一起沉淀用户长期的生活轨迹。</p>
+            </article>
+            <article class="card">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM17 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 21a4 4 0 0 1 8 0M13 21a4 4 0 0 1 8 0"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <h3>社交展示</h3>
+              <p>用户可以公开展示奖章外层内容，也可以隐藏详情、地点和原始素材。</p>
+            </article>
+          </div>
+        </section>
+
+        <div id="value" class="value-band">
+          <div class="value-inner">
+            <h2>价值与意义</h2>
+            <div class="value-list">
+              <div class="value-item">
+                <strong>商业价值</strong>
+                <span
+                  >产品同时具备个人记录、AI
+                  生成和社交展示属性，容易形成持续使用和内容分享场景，后续可以扩展会员、视觉风格包、成长报告等商业模式。</span
+                >
+              </div>
+              <div class="value-item">
+                <strong>体验价值</strong>
+                <span
+                  >它把“我今天做了什么”变成“我获得了什么奖章”，让普通经历被重新理解，增强用户的成就感和自我确认。</span
+                >
+              </div>
+              <div class="value-item">
+                <strong>社会价值</strong>
+                <span
+                  >产品鼓励用户认真看待自己的真实生活，把成长、坚持、探索和情绪恢复都记录下来，让更多普通人的经历被温和地保存和表达。</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <span>【生活娱乐】经历成就官</span>
+        <span>AI 生活经历奖章创意方案</span>
+      </footer>
+    </div>
+  </body>
+</html>

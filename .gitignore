@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local runtime data
+tmp/
+*.local
+
+# Environment
+.env.local
+.env.*.local
+
+# Dependencies
+vendor/
+
+# Build output
+*.exe
+
+# IDE
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Docker volumes
+pgdata/
+miniodata/
+
+# Go
+*.test
+*.out
