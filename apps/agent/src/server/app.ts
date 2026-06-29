@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { healthRoutes } from "./routes/health.js";
-import { streamRoutes } from "./routes/stream.js";
+import { conversationRoutes } from "./routes/conversation.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -8,7 +8,7 @@ export function buildApp() {
   });
 
   app.register(healthRoutes);
-  app.register(streamRoutes);
+  app.register(conversationRoutes);
 
   return app;
 }
