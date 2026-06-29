@@ -8,6 +8,7 @@ import (
 	"github.com/earth-online/api/internal/http/handlers"
 	"github.com/earth-online/api/internal/http/middleware"
 	"github.com/earth-online/api/internal/integrations/agent"
+	"github.com/earth-online/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -28,12 +29,17 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	// Agent integration client
 	agentClient := agent.NewClient(cfg.AgentServiceURL, logger)
 
+	// MinIO client
+	minioClient := storage.NewMinIOClient(cfg.S3Endpoint, cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.S3Bucket, logger)
+
 	// Handlers
 	authHandler := handlers.NewAuthHandler(db, redisClient, cfg, logger)
 	userHandler := handlers.NewUserHandler(db, logger)
 	experienceHandler := handlers.NewExperienceHandler(db, logger)
 	conversationHandler := handlers.NewConversationHandler(db, agentClient, logger)
 	medalHandler := handlers.NewMedalHandler(db, agentClient, logger)
+	assetHandler := handlers.NewAssetHandler(db, minioClient, logger)
+	profileHandler := handlers.NewProfileHandler(db, logger)
 
 	api := r.Group("/api/v1")
 
@@ -53,6 +59,13 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.POST("/auth/logout", authHandler.Logout)
 		authRequired.GET("/me", authHandler.GetMe)
 		authRequired.PUT("/me", userHandler.UpdateMe)
+
+		// Profile (M5)
+		authRequired.GET("/me/profile", profileHandler.GetMyProfile)
+		authRequired.PUT("/me/profile", profileHandler.UpdateMyProfile)
+		authRequired.GET("/me/medals", profileHandler.GetMyMedals)
+		authRequired.GET("/users/:id/profile", profileHandler.GetUserProfile)
+		authRequired.GET("/users/:id/medals", profileHandler.GetUserMedals)
 
 		// Experiences
 		authRequired.POST("/experiences", experienceHandler.CreateExperience)
@@ -75,7 +88,13 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.GET("/medals/:id", medalHandler.GetMedal)
 		authRequired.PUT("/medals/:id", medalHandler.UpdateMedal)
 		authRequired.POST("/medals/:id/regenerate/meaning", medalHandler.RegenerateMeaning)
+		authRequired.PUT("/medals/:id/visibility", profileHandler.UpdateMedalVisibility)
 		authRequired.GET("/medals/:id/versions", medalHandler.ListVersions)
 		authRequired.POST("/medals/:id/versions/:vid/restore", medalHandler.RestoreVersion)
+
+		// Assets (M4)
+		authRequired.POST("/assets/presign", assetHandler.PresignUpload)
+		authRequired.POST("/assets", assetHandler.CreateAsset)
+		authRequired.GET("/assets/:id", assetHandler.GetAsset)
 	}
 }

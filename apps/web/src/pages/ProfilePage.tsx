@@ -1,11 +1,21 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Award, Clock, Eye, EyeOff, PlusCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Award, Clock, Grid, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/features/auth/useAuth";
-import { useMedalStore } from "@/features/medals/medalStore";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getMyMedals, getMyProfile } from "@/features/profile/profileApi";
+import type { MedalWithVersion } from "@earth-online/shared";
+
+const memoryWeightLabels: Record<string, string> = {
+  light: "轻盈记忆",
+  medium: "有意义的经历",
+  heavy: "重要人生节点",
+};
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -13,128 +23,223 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function visibilityLabel(visibility: string) {
+  if (visibility === "public") return "公开";
+  if (visibility === "friends") return "好友可见";
+  return "私密";
+}
+
 export default function ProfilePage() {
-  const { nickname } = useAuth();
-  const medals = useMedalStore((state) => state.medals);
+  const profileQuery = useQuery({
+    queryKey: ["my-profile"],
+    queryFn: getMyProfile,
+  });
+  const medalsQuery = useQuery({
+    queryKey: ["my-medals"],
+    queryFn: getMyMedals,
+  });
+
+  const profile = profileQuery.data;
+  const medals = medalsQuery.data ?? [];
+
+  // 时间线按获得时间倒序排列。依赖 React Query 返回的稳定引用，避免每次渲染重排。
+  const timelineMedals = useMemo(
+    () =>
+      (medalsQuery.data ?? [])
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+    [medalsQuery.data],
+  );
+
+  const medalsLoading = medalsQuery.isLoading;
+  const medalsError = medalsQuery.error;
 
   return (
     <div className="space-y-8">
+      {/* 个人信息卡片 */}
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-              {nickname?.[0]?.toUpperCase() ?? "U"}
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold">个人主页</h1>
-              <p className="text-sm text-muted-foreground">
-                {medals.length > 0
-                  ? `已经保存 ${medals.length} 枚经历奖章`
-                  : "这里展示你的个人成就档案"}
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.nickname}
+                className="h-16 w-16 rounded-full border object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+                {profile?.nickname?.[0]?.toUpperCase() ?? "U"}
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold">
+                {profile?.nickname ?? "个人主页"}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {profile?.bio ?? "这个人还没有留下简介"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {profile
+                  ? `已收藏 ${profile.medal_count} 枚经历奖章`
+                  : "加载中…"}
               </p>
             </div>
           </div>
           <Button asChild>
             <Link to="/create">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              创建经历
+              <Plus className="mr-2 h-4 w-4" />
+              记录经历
             </Link>
           </Button>
         </div>
       </div>
 
-      <section>
-        <div className="mb-4 flex items-center gap-2">
-          <Award className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">奖章墙</h2>
+      {/* 奖章墙 / 时间线 */}
+      <Tabs defaultValue="wall" className="w-full">
+        <TabsList>
+          <TabsTrigger value="wall">
+            <Grid className="mr-2 h-4 w-4" />
+            奖章墙
+          </TabsTrigger>
+          <TabsTrigger value="timeline">
+            <Clock className="mr-2 h-4 w-4" />
+            时间线
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 奖章墙 */}
+        <TabsContent value="wall">
+          {medalsLoading ? (
+            <LoadingState />
+          ) : medalsError ? (
+            <ErrorState message="加载奖章失败，请稍后重试" />
+          ) : medals.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+              {medals.map((medal) => (
+                <MedalWallCard key={medal.id} medal={medal} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </TabsContent>
+
+        {/* 时间线 */}
+        <TabsContent value="timeline">
+          {medalsLoading ? (
+            <LoadingState />
+          ) : medalsError ? (
+            <ErrorState message="加载奖章失败，请稍后重试" />
+          ) : timelineMedals.length > 0 ? (
+            <div className="space-y-3 py-4">
+              {timelineMedals.map((medal) => (
+                <MedalTimelineRow key={`timeline-${medal.id}`} medal={medal} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function MedalWallCard({ medal }: { medal: MedalWithVersion }) {
+  return (
+    <Link
+      to={`/medals/${medal.id}`}
+      className="group rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-muted/50"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+          <Award className="h-7 w-7" />
         </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {visibilityLabel(medal.visibility)}
+        </span>
+      </div>
+      <h3 className="mt-4 font-semibold">{medal.title}</h3>
+      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+        {medal.short_reason}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border px-2 py-0.5 text-xs">
+          {memoryWeightLabels[medal.memory_weight] ?? medal.memory_weight}
+        </span>
+      </div>
+    </Link>
+  );
+}
 
-        {medals.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {medals.map((medal) => (
-              <Link
-                key={medal.id}
-                to={`/medals/${medal.id}`}
-                className="rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-800">
-                    <Award className="h-7 w-7" />
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    {medal.visibility === "public" ? (
-                      <>
-                        <Eye className="h-3 w-3" />
-                        公开
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-3 w-3" />
-                        私密
-                      </>
-                    )}
-                  </span>
-                </div>
-                <h3 className="mt-4 font-semibold">{medal.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{medal.summary}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {medal.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border px-2 py-0.5 text-xs">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex aspect-square flex-col items-center justify-center rounded-lg border bg-card p-4 text-muted-foreground"
-              >
-                <Award className="h-8 w-8" />
-                <p className="mt-2 text-xs">待解锁</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <div className="mb-4 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">经历时间线</h2>
+function MedalTimelineRow({ medal }: { medal: MedalWithVersion }) {
+  return (
+    <Link
+      to={`/medals/${medal.id}`}
+      className="flex gap-4 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
+    >
+      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+        <Clock className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium">{medal.title}</p>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {visibilityLabel(medal.visibility)}
+          </span>
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {formatDate(medal.created_at)}
+        </p>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+          {medal.short_reason}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <span className="rounded-full border px-2 py-0.5 text-xs">
+            {memoryWeightLabels[medal.memory_weight] ?? medal.memory_weight}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
-        {medals.length > 0 ? (
-          <div className="space-y-3">
-            {medals.map((medal) => (
-              <Link
-                key={`timeline-${medal.id}`}
-                to={`/medals/${medal.id}`}
-                className="flex gap-4 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
-              >
-                <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{medal.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(medal.createdAt)}</p>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{medal.summary}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-12 text-muted-foreground">
-            <Clock className="h-10 w-10" />
-            <p className="mt-3 text-sm">暂无经历记录</p>
-            <p className="mt-1 text-xs">创建你的第一段经历吧</p>
-          </div>
-        )}
-      </section>
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+      <Award className="h-10 w-10" />
+      <p className="mt-3 text-sm">{message}</p>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+        <Award className="h-8 w-8" />
+      </div>
+      <h3 className="mt-4 text-lg font-semibold">还没有任何经历奖章</h3>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        和你的 Agent 聊聊最近发生的事，让它帮你把重要的经历铸成一枚奖章，留在这里慢慢回看。
+      </p>
+      <Button asChild className="mt-6">
+        <Link to="/create">
+          <Plus className="mr-2 h-4 w-4" />
+          记录经历
+        </Link>
+      </Button>
     </div>
   );
 }

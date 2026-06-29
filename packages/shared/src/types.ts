@@ -122,6 +122,34 @@ export interface MedalVersion {
   created_at: string;
 }
 
+// 个人主页 / Profile
+export interface UserProfileResponse {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string;
+  medal_count: number;
+}
+
+export interface UpdateProfileRequest {
+  nickname?: string;
+  avatar_url?: string;
+  bio?: string;
+}
+
+// 奖章 + 当前版本的 meaning_focus / story
+export interface MedalWithVersion extends Medal {
+  meaning_focus: string | null;
+  story: string | null;
+}
+
+// 奖章可见性更新：hidden_fields 为 JSON 字符串，与后端 *string(JSONB) 对齐
+export interface VisibilityUpdateRequest {
+  visibility: Visibility;
+  hidden_fields?: string | null;
+}
+
 // 素材
 export type AssetType = "image" | "audio" | "video" | "document";
 
