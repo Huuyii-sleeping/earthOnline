@@ -2,13 +2,13 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Award,
+  Check,
   ChevronDown,
   Eye,
   EyeOff,
   Loader2,
   MessageSquare,
   RefreshCw,
-  Save,
   Send,
   Settings,
   SlidersHorizontal,
@@ -17,20 +17,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  createMockAgentReply,
-  streamAgentMessage,
-  type AgentChatMessage,
-} from "@/features/agent/agentClient";
+  createExperience,
+  createSession,
+  sendMessage,
+  generateSummary,
+  type ConversationSummary,
+} from "@/features/agent/conversationApi";
 import {
-  DEFAULT_AGENT_SYSTEM_PROMPT,
+  createMockMedalDraft,
+  generateMedalDraftWithAgent,
+} from "@/features/medals/medalGenerator";
+import {
   useAgentRuntimeConfigStore,
 } from "@/features/agent/runtimeConfig";
-import { createMockMedalDraft, generateMedalDraftWithAgent } from "@/features/medals/medalGenerator";
 import {
   type MedalDraft,
   type MedalVisibility,
   useMedalStore,
 } from "@/features/medals/medalStore";
+import type { Experience } from "@earth-online/shared";
 
 interface ChatMessage {
   id: string;
@@ -70,11 +75,18 @@ export default function CreateExperiencePage() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isSending, setIsSending] = useState(false);
   const [isGeneratingMedal, setIsGeneratingMedal] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [medalDraft, setMedalDraft] = useState<MedalDraft | null>(null);
+  const [summary, setSummary] = useState<ConversationSummary | null>(null);
+
+  // Backend state
+  const [experience, setExperience] = useState<Experience | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   const runtimeConfig = useAgentRuntimeConfigStore();
   const addMedal = useMedalStore((state) => state.addMedal);
-  const [isConfigOpen, setIsConfigOpen] = useState(!runtimeConfig.isConfigured);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiUrl, setApiUrl] = useState(runtimeConfig.apiUrl);
   const [apiKey, setApiKey] = useState(runtimeConfig.apiKey);
   const [model, setModel] = useState(runtimeConfig.model);
@@ -90,23 +102,8 @@ export default function CreateExperiencePage() {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, isSending]);
 
-  const runtimeApiLabel = (() => {
-    if (!runtimeConfig.isConfigured) return null;
-
-    try {
-      return new URL(runtimeConfig.apiUrl).host;
-    } catch {
-      return runtimeConfig.apiUrl;
-    }
-  })();
-
   const handleApplyRuntimeConfig = () => {
-    runtimeConfig.setConfig({
-      apiUrl,
-      apiKey,
-      model,
-      systemPrompt,
-    });
+    runtimeConfig.setConfig({ apiUrl, apiKey, model, systemPrompt });
     setError(null);
     setIsConfigOpen(false);
   };
@@ -116,23 +113,24 @@ export default function CreateExperiencePage() {
     setApiUrl("");
     setApiKey("");
     setModel("gpt-4o-mini");
-    setSystemPrompt(DEFAULT_AGENT_SYSTEM_PROMPT);
+    setSystemPrompt(runtimeConfig.systemPrompt);
     setError(null);
     setIsConfigOpen(true);
   };
 
-  const appendAssistantToken = (messageId: string, token: string) => {
-    setMessages((current) =>
-      current.map((item) =>
-        item.id === messageId ? { ...item, content: `${item.content}${token}` } : item,
-      ),
-    );
-  };
+  // Ensure we have an experience + session before sending messages
+  const ensureExperienceAndSession = async (): Promise<string> => {
+    if (sessionId) return sessionId;
 
-  const replaceAssistantMessage = (messageId: string, content: string) => {
-    setMessages((current) =>
-      current.map((item) => (item.id === messageId ? { ...item, content } : item)),
-    );
+    // Create experience
+    const exp = await createExperience();
+    setExperience(exp);
+
+    // Create conversation session
+    const session = await createSession(exp.id);
+    setSessionId(session.id);
+
+    return session.id;
   };
 
   const handleSend = async () => {
@@ -144,72 +142,52 @@ export default function CreateExperiencePage() {
       content: userContent,
     };
 
-    const nextMessages = [...messages, userMessage];
     const assistantMessageId = `assistant-${Date.now()}`;
 
-    setMessages(
-      runtimeConfig.isConfigured
-        ? [
-            ...nextMessages,
-            {
-              id: assistantMessageId,
-              role: "assistant",
-              content: "",
-            },
-          ]
-        : nextMessages,
-    );
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { id: assistantMessageId, role: "assistant", content: "" },
+    ]);
     setMessage("");
     setError(null);
     setIsSending(true);
-    let receivedStreamContent = false;
 
     try {
-      if (runtimeConfig.isConfigured) {
-        await streamAgentMessage(
-          runtimeConfig,
-          nextMessages.map<AgentChatMessage>((item) => ({
-            role: item.role,
-            content: item.content,
-          })),
-          (token) => {
-            receivedStreamContent = true;
-            appendAssistantToken(assistantMessageId, token);
-          },
-        );
-      } else {
-        const reply = createMockAgentReply(userContent, nextMessages.length);
+      const currentSessionId = await ensureExperienceAndSession();
 
-        setMessages((current) => [
-          ...current,
-          {
-            id: assistantMessageId,
-            role: "assistant",
-            content: reply,
-          },
-        ]);
-      }
+      // Send message via Go API (which proxies to Agent service)
+      const result = await sendMessage(currentSessionId, userContent);
+
+      // Update messages with real data
+      setMessages((prev) =>
+        prev.map((item) => {
+          if (item.id === userMessage.id) {
+            return { ...item, id: result.user_message.id };
+          }
+          if (item.id === assistantMessageId) {
+            return {
+              ...item,
+              id: result.agent_message?.id || assistantMessageId,
+              content: result.agent_message?.content || "Agent 暂时无法回复，请稍后再试。",
+            };
+          }
+          return item;
+        }),
+      );
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Agent 调用失败，请检查 API URL、Key 或跨域设置";
+        err instanceof Error ? err.message : "发送消息失败";
       setError(errorMessage);
 
-      if (runtimeConfig.isConfigured && !receivedStreamContent) {
-        replaceAssistantMessage(
-          assistantMessageId,
-          "我暂时没有连上你配置的 Agent API。你可以检查运行时配置，或者清空配置继续用本地 mock 测试。",
-        );
-      } else if (!runtimeConfig.isConfigured) {
-        setMessages((current) => [
-          ...current,
-          {
-            id: assistantMessageId,
-            role: "assistant",
-            content:
-              "我暂时没有连上你配置的 Agent API。你可以检查运行时配置，或者清空配置继续用本地 mock 测试。",
-          },
-        ]);
-      }
+      // Update assistant message with error
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === assistantMessageId
+            ? { ...item, content: "抱歉，我暂时无法回复，请稍后再试。" }
+            : item,
+        ),
+      );
     } finally {
       setIsSending(false);
     }
@@ -222,23 +200,46 @@ export default function CreateExperiencePage() {
     }
   };
 
+  const handleGenerateSummary = async () => {
+    if (!sessionId || isGeneratingSummary) return;
+
+    setError(null);
+    setIsGeneratingSummary(true);
+
+    try {
+      const result = await generateSummary(sessionId);
+      setSummary(result);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `总结生成失败：${err.message}`
+          : "总结生成失败",
+      );
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
   const handleGenerateMedal = async () => {
     if (!canGenerateMedal || isGeneratingMedal) return;
 
     setError(null);
     setIsGeneratingMedal(true);
 
-    const transcriptMessages = messages.map((item) => ({
-      role: item.role,
-      content: item.content,
-    }));
+    const transcriptMessages = messages
+      .filter((item) => item.id !== "agent-welcome")
+      .map((item) => ({ role: item.role, content: item.content }));
 
     try {
-      const draft = runtimeConfig.isConfigured
-        ? await generateMedalDraftWithAgent(runtimeConfig, transcriptMessages)
-        : createMockMedalDraft(transcriptMessages);
-
-      setMedalDraft(draft);
+      // Try Agent-based generation first (if runtime config available)
+      if (runtimeConfig.isConfigured) {
+        const draft = await generateMedalDraftWithAgent(runtimeConfig, transcriptMessages);
+        setMedalDraft(draft);
+      } else {
+        // Fallback to mock
+        const draft = createMockMedalDraft(transcriptMessages);
+        setMedalDraft(draft);
+      }
     } catch (err) {
       const fallbackDraft = createMockMedalDraft(transcriptMessages);
       setMedalDraft(fallbackDraft);
@@ -270,11 +271,9 @@ export default function CreateExperiencePage() {
         <div className="flex-1">
           <h1 className="text-xl font-semibold">记录今天的经历</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            {runtimeConfig.isConfigured
-              ? `正在使用真实 API：${runtimeConfig.model} · ${runtimeApiLabel}${
-                  runtimeConfig.isPersisted ? " · 已保存到本机" : ""
-                }`
-              : "未配置 API，当前使用本地 mock Agent"}
+            {experience
+              ? `经历 ID：${experience.id.slice(0, 8)}... · 状态：${experience.status}`
+              : "开始记录，Agent 会帮你把经历整理成奖章"}
           </p>
         </div>
         <Button
@@ -284,7 +283,7 @@ export default function CreateExperiencePage() {
           onClick={() => setIsConfigOpen((current) => !current)}
         >
           <SlidersHorizontal className="mr-2 h-4 w-4" />
-          本页配置
+          奖章生成配置
           <ChevronDown
             className={`ml-2 h-4 w-4 transition-transform ${isConfigOpen ? "rotate-180" : ""}`}
           />
@@ -297,14 +296,14 @@ export default function CreateExperiencePage() {
         </Button>
       </div>
 
+      {/* Runtime config panel (for medal generation LLM) */}
       {isConfigOpen && (
         <div className="mt-4 rounded-lg border bg-card p-4 shadow-sm">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-sm font-semibold">运行时 Agent API</h2>
+              <h2 className="text-sm font-semibold">奖章生成 LLM 配置（可选）</h2>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                配置会保存到当前浏览器的 localStorage，用于本机开发测试；生产环境应改为服务端托管
-                API Key。
+                对话由后端 Agent 服务处理。此配置仅用于奖章生成阶段的 LLM 调用，会保存到 localStorage。
               </p>
             </div>
             <span
@@ -314,11 +313,7 @@ export default function CreateExperiencePage() {
                   : "bg-muted text-muted-foreground"
               }`}
             >
-              {runtimeConfig.isConfigured
-                ? runtimeConfig.isPersisted
-                  ? "真实 API 已保存"
-                  : "真实 API 已启用"
-                : "当前是 mock"}
+              {runtimeConfig.isConfigured ? "已配置" : "未配置"}
             </span>
           </div>
 
@@ -332,7 +327,6 @@ export default function CreateExperiencePage() {
                 placeholder="https://api.openai.com/v1"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="create-agent-api-key">API Key</Label>
               <Input
@@ -343,7 +337,6 @@ export default function CreateExperiencePage() {
                 placeholder="会保存到当前浏览器本机存储"
               />
             </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="create-agent-model">模型</Label>
               <Input
@@ -353,7 +346,6 @@ export default function CreateExperiencePage() {
                 placeholder="gpt-4o-mini"
               />
             </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="create-agent-system-prompt">系统提示词</Label>
               <textarea
@@ -363,7 +355,6 @@ export default function CreateExperiencePage() {
                 className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
-
             <div className="flex flex-wrap items-center gap-3 md:col-span-2">
               <Button
                 type="button"
@@ -375,9 +366,6 @@ export default function CreateExperiencePage() {
               <Button type="button" variant="outline" onClick={handleClearRuntimeConfig}>
                 清空本机配置
               </Button>
-              <span className="text-xs leading-5 text-muted-foreground">
-                不要在公共电脑保存真实 API Key；如果调用失败，请看下方错误提示。
-              </span>
             </div>
           </form>
         </div>
@@ -402,8 +390,9 @@ export default function CreateExperiencePage() {
           </div>
         ))}
 
-        {isSending && !runtimeConfig.isConfigured && (
+        {isSending && (
           <div className="mr-auto max-w-[82%] rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
             Agent 正在思考...
           </div>
         )}
@@ -416,6 +405,46 @@ export default function CreateExperiencePage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* 生成前总结 */}
+      {summary && (
+        <div className="mb-4 rounded-lg border bg-blue-50 p-4 shadow-sm">
+          <div className="mb-2 flex items-center gap-2">
+            <Check className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">经历总结</h3>
+            {summary.readyToGenerate && (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                可以生成奖章
+              </span>
+            )}
+          </div>
+          <p className="text-sm leading-6">{summary.experienceSummary}</p>
+          {summary.keyMoments.length > 0 && (
+            <div className="mt-2">
+              <span className="text-xs text-muted-foreground">关键情节：</span>
+              {summary.keyMoments.map((moment, i) => (
+                <span key={i} className="ml-2 rounded-full border px-2 py-0.5 text-xs">
+                  {moment}
+                </span>
+              ))}
+            </div>
+          )}
+          {summary.detectedEmotions.length > 0 && (
+            <div className="mt-2">
+              <span className="text-xs text-muted-foreground">情绪：</span>
+              {summary.detectedEmotions.map((emotion, i) => (
+                <span key={i} className="ml-2 rounded-full border px-2 py-0.5 text-xs">
+                  {emotion}
+                </span>
+              ))}
+            </div>
+          )}
+          {summary.possibleMeaning && (
+            <p className="mt-2 text-xs text-muted-foreground">{summary.possibleMeaning}</p>
+          )}
+        </div>
+      )}
+
+      {/* 奖章预览 */}
       {medalDraft && (
         <div className="mb-4 rounded-lg border bg-card p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -430,7 +459,9 @@ export default function CreateExperiencePage() {
                     {medalDraft.source === "agent" ? "Agent 生成" : "本地生成"}
                   </span>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{medalDraft.summary}</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {medalDraft.summary}
+                </p>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{medalDraft.detail}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {medalDraft.tags.map((tag) => (
@@ -464,7 +495,6 @@ export default function CreateExperiencePage() {
                 </Button>
               </div>
               <Button type="button" onClick={handleSaveMedal}>
-                <Save className="mr-2 h-4 w-4" />
                 保存奖章
               </Button>
               <Button
@@ -496,6 +526,20 @@ export default function CreateExperiencePage() {
           disabled={isSending || isGeneratingMedal}
         />
         <div className="flex gap-2">
+          {sessionId && (
+            <Button
+              onClick={handleGenerateSummary}
+              disabled={isSending || isGeneratingSummary || isGeneratingMedal}
+              variant="outline"
+            >
+              {isGeneratingSummary ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              生成总结
+            </Button>
+          )}
           <Button
             onClick={handleGenerateMedal}
             disabled={!canGenerateMedal || isSending || isGeneratingMedal}
@@ -513,7 +557,11 @@ export default function CreateExperiencePage() {
             disabled={!message.trim() || isSending || isGeneratingMedal}
             aria-label="发送经历"
           >
-            <Send className="h-4 w-4" />
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
