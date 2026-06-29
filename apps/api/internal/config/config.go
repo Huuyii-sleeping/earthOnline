@@ -17,6 +17,7 @@ type Config struct {
 	S3AccessKeyID     string
 	S3SecretAccessKey string
 	AgentServiceURL   string
+	OpenAIAPIKey      string
 }
 
 func Load() *Config {
@@ -37,6 +38,7 @@ func Load() *Config {
 		S3AccessKeyID:     getEnv("S3_ACCESS_KEY_ID", "minioadmin"),
 		S3SecretAccessKey: getEnv("S3_SECRET_ACCESS_KEY", "minioadmin"),
 		AgentServiceURL:   getEnv("AGENT_SERVICE_URL", "http://localhost:8787"),
+		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 	}
 }
 

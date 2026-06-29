@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { generateMedal, regenerateMedalMeaning, type MedalHistoryItem } from "../../graphs/experience-medal.graph.js";
+import { generateVisualInstructions } from "../../graphs/medal-visual.graph.js";
 
 interface GenerateMedalBody {
   session_id?: string;
@@ -7,6 +8,13 @@ interface GenerateMedalBody {
   history?: MedalHistoryItem[];
   direction?: string;
   user_input?: string;
+}
+
+interface GenerateVisualBody {
+  medal_title?: string;
+  short_reason?: string;
+  meaning_focus?: string;
+  story?: string;
 }
 
 export async function medalRoutes(app: FastifyInstance) {
@@ -50,6 +58,34 @@ export async function medalRoutes(app: FastifyInstance) {
       request.log.error(error, "meaning regeneration failed");
       return reply.code(500).send({
         error: "meaning regeneration failed",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+  });
+
+  // Generate visual instructions for a medal
+  app.post("/medals/generate-visual", async (request, reply) => {
+    const body = request.body as GenerateVisualBody;
+
+    if (!body?.medal_title || !body.medal_title.trim()) {
+      return reply.code(400).send({ error: "medal_title is required" });
+    }
+    if (!body?.short_reason || !body.short_reason.trim()) {
+      return reply.code(400).send({ error: "short_reason is required" });
+    }
+
+    try {
+      const result = await generateVisualInstructions(
+        body.medal_title,
+        body.short_reason,
+        body.meaning_focus ?? "",
+        body.story ?? "",
+      );
+      return result;
+    } catch (error) {
+      request.log.error(error, "visual instruction generation failed");
+      return reply.code(500).send({
+        error: "visual instruction generation failed",
         detail: error instanceof Error ? error.message : "unknown error",
       });
     }
