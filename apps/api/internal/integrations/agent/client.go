@@ -37,8 +37,8 @@ type SendMessageRequest struct {
 
 // SendMessageResponse is what the Agent service returns for a non-streaming message.
 type SendMessageResponse struct {
-	Reply   string `json:"reply"`
-	Done    bool   `json:"done"`
+	Reply string `json:"reply"`
+	Done  bool   `json:"done"`
 }
 
 // SendMessage sends a user message to the Agent and gets a reply.
@@ -99,11 +99,11 @@ func (c *Client) StreamSession(ctx context.Context, sessionID string) (io.ReadCl
 
 // GenerateMedalRequest is the payload sent to the Agent for medal generation.
 type GenerateMedalRequest struct {
-	SessionID   string                 `json:"session_id"`
-	Experience  string                 `json:"experience,omitempty"`
-	History     []HistoryItem           `json:"history,omitempty"`
-	Direction   string                 `json:"direction,omitempty"`
-	UserInput   string                 `json:"user_input,omitempty"`
+	SessionID  string        `json:"session_id"`
+	Experience string        `json:"experience,omitempty"`
+	History    []HistoryItem `json:"history,omitempty"`
+	Direction  string        `json:"direction,omitempty"`
+	UserInput  string        `json:"user_input,omitempty"`
 }
 
 type HistoryItem struct {
@@ -211,4 +211,60 @@ func (c *Client) GenerateSummary(ctx context.Context, sessionID string) (json.Ra
 	}
 
 	return result, nil
+}
+
+// StageExperienceItem is one experience fed into a stage summary.
+type StageExperienceItem struct {
+	Title      string `json:"title,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	OccurredAt string `json:"occurredAt,omitempty"`
+}
+
+// GenerateStageSummaryRequest is the payload sent to the Agent's stage endpoint.
+type GenerateStageSummaryRequest struct {
+	PeriodLabel string                `json:"period_label"`
+	Experiences []StageExperienceItem `json:"experiences"`
+}
+
+// GenerateStageSummaryResponse is what the Agent returns for a stage roll-up.
+type GenerateStageSummaryResponse struct {
+	Title        string   `json:"title"`
+	Summary      string   `json:"summary"`
+	MemoryWeight string   `json:"memoryWeight"`
+	Story        string   `json:"story"`
+	Highlights   []string `json:"highlights"`
+}
+
+// GenerateStageSummary asks the Agent to roll up a window of experiences into a
+// stage summary and stage medal.
+func (c *Client) GenerateStageSummary(ctx context.Context, req *GenerateStageSummaryRequest) (*GenerateStageSummaryResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/stage/summary"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent stage summary: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("agent stage summary returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var result GenerateStageSummaryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode stage summary response: %w", err)
+	}
+
+	return &result, nil
 }

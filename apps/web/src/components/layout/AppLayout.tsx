@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { Bell, Bot, Home, LogOut, Menu, PlusCircle, User, X } from "lucide-react";
+import { Award, Bell, Bot, Home, LogOut, Menu, PlusCircle, User, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/useAuth";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/app", label: "首页", icon: Home },
   { to: "/create", label: "创建经历", icon: PlusCircle },
+  { to: "/stage-summaries", label: "阶段回顾", icon: Award },
   { to: "/profile", label: "个人主页", icon: User },
   { to: "/notifications", label: "通知", icon: Bell },
   { to: "/settings/agent", label: "Agent 设置", icon: Bot },

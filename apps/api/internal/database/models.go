@@ -197,3 +197,32 @@ type GenerationJob struct {
 }
 
 func (GenerationJob) TableName() string { return "generation_jobs" }
+
+// StageSummary is a periodic (weekly/monthly) roll-up of a user's experiences
+// during a window — the artifact of Milestone 7's 阶段性产出. It carries the
+// stage narrative directly (title/summary/story/highlights) rather than forcing
+// a separate Medal row, since a stage roll-up spans many experiences and the
+// medals table requires a single anchoring experience.
+//
+// A row is uniquely identified by (user_id, period_type, period_start) so that
+// re-running generation for the same window is idempotent — the scheduler and
+// the manual trigger both rely on this to avoid duplicates.
+type StageSummary struct {
+	Base
+	UserID          string    `gorm:"type:uuid;not null;uniqueIndex:idx_stage_period;index" json:"user_id"`
+	PeriodType      string    `gorm:"type:varchar(20);not null;uniqueIndex:idx_stage_period" json:"period_type"`
+	PeriodStart     time.Time `gorm:"type:timestamptz;not null;uniqueIndex:idx_stage_period" json:"period_start"`
+	PeriodEnd       time.Time `gorm:"type:timestamptz;not null" json:"period_end"`
+	Status          string    `gorm:"type:varchar(20);not null;default:'completed'" json:"status"`
+	Title           string    `gorm:"type:varchar(255);not null" json:"title"`
+	SummaryText     string    `gorm:"type:text;not null" json:"summary_text"`
+	Story           *string   `gorm:"type:text" json:"story"`
+	MemoryWeight    string    `gorm:"type:varchar(20);not null;default:'medium'" json:"memory_weight"`
+	HighlightsJSON  *string   `gorm:"type:jsonb" json:"highlights_json"`
+	ExperienceCount int       `gorm:"not null;default:0" json:"experience_count"`
+	GeneratedBy     string    `gorm:"type:varchar(20);not null;default:'agent'" json:"generated_by"`
+	Trigger         string    `gorm:"type:varchar(20);not null;default:'manual'" json:"trigger"`
+	ErrorMsg        *string   `gorm:"type:text" json:"error_message"`
+}
+
+func (StageSummary) TableName() string { return "stage_summaries" }

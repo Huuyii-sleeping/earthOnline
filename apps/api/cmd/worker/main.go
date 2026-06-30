@@ -15,6 +15,8 @@ import (
 
 	"github.com/earth-online/api/internal/config"
 	"github.com/earth-online/api/internal/database"
+	"github.com/earth-online/api/internal/domain/stagesummary"
+	"github.com/earth-online/api/internal/integrations/agent"
 	"github.com/earth-online/api/internal/storage"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -22,8 +24,9 @@ import (
 
 // Task type identifiers registered with the asynq scheduler.
 const (
-	TaskSpeechToText     = "speech_to_text"
+	TaskSpeechToText       = "speech_to_text"
 	TaskImageUnderstanding = "image_understanding"
+	TaskStageSummaryPeriod = "stage_summary.generate_period"
 )
 
 // concurrency is how many tasks the worker processes in parallel.
@@ -40,6 +43,7 @@ type worker struct {
 	db          *gorm.DB
 	minioClient *storage.MinIOClient
 	openai      *openAIClient
+	stage       *stagesummary.Service
 	logger      *slog.Logger
 }
 
@@ -83,6 +87,7 @@ func main() {
 		db:          db,
 		minioClient: minioClient,
 		openai:      openaiCli,
+		stage:       stagesummary.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
 		logger:      logger,
 	}
 
@@ -102,6 +107,18 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskSpeechToText, w.handleSpeechToText)
 	mux.HandleFunc(TaskImageUnderstanding, w.handleImageUnderstanding)
+	mux.HandleFunc(TaskStageSummaryPeriod, w.handleStageSummaryPeriod)
+
+	scheduler := newStageSummaryScheduler(cfg.RedisAddr, logger)
+	if err := registerStageSummarySchedules(scheduler); err != nil {
+		logger.Error("failed to register stage summary schedules", "error", err)
+		os.Exit(1)
+	}
+	go func() {
+		if err := scheduler.Run(); err != nil {
+			logger.Error("stage summary scheduler stopped with error", "error", err)
+		}
+	}()
 
 	// Graceful shutdown on SIGINT / SIGTERM.
 	stop := make(chan os.Signal, 1)
@@ -110,6 +127,7 @@ func main() {
 	go func() {
 		<-stop
 		logger.Info("shutting down worker...")
+		scheduler.Shutdown()
 		srv.Shutdown()
 	}()
 

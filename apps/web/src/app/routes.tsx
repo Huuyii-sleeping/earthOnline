@@ -10,6 +10,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import UserProfilePage from "@/pages/UserProfilePage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import AgentSettingsPage from "@/pages/AgentSettingsPage";
+import StageSummariesPage from "@/pages/StageSummariesPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import { useAuth } from "@/features/auth/useAuth";
 
@@ -61,6 +62,7 @@ export function AppRoutes() {
         <Route path="/create" element={<CreateExperiencePage />} />
         <Route path="/medals/:id" element={<MedalDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/stage-summaries" element={<StageSummariesPage />} />
         <Route path="/users/:id" element={<UserProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings/agent" element={<AgentSettingsPage />} />

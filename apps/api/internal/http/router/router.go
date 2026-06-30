@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/earth-online/api/internal/config"
+	"github.com/earth-online/api/internal/domain/stagesummary"
 	"github.com/earth-online/api/internal/http/handlers"
 	"github.com/earth-online/api/internal/http/middleware"
 	"github.com/earth-online/api/internal/integrations/agent"
@@ -47,6 +48,9 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	socialHandler := handlers.NewSocialHandler(db, logger)
 	feedHandler := handlers.NewFeedHandler(db, logger)
 	notificationHandler := handlers.NewNotificationHandler(db, logger)
+	stageSummaryService := stagesummary.NewService(db, agentClient, logger)
+	stageSummaryHandler := handlers.NewStageSummaryHandler(db, stageSummaryService, logger)
+	agentProfileHandler := handlers.NewAgentProfileHandler(db, logger)
 
 	api := r.Group("/api/v1")
 
@@ -126,5 +130,14 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.GET("/notifications/unread-count", notificationHandler.UnreadCount)
 		authRequired.POST("/notifications/:id/read", notificationHandler.MarkRead)
 		authRequired.POST("/notifications/read-all", notificationHandler.MarkAllRead)
+
+		// Stage summaries (M7)
+		authRequired.POST("/stage-summaries/generate", stageSummaryHandler.GenerateStageSummary)
+		authRequired.GET("/stage-summaries", stageSummaryHandler.ListStageSummaries)
+		authRequired.GET("/stage-summaries/:id", stageSummaryHandler.GetStageSummary)
+
+		// Agent profile (M7)
+		authRequired.GET("/agent-profile", agentProfileHandler.GetAgentProfile)
+		authRequired.PUT("/agent-profile", agentProfileHandler.UpdateAgentProfile)
 	}
 }
