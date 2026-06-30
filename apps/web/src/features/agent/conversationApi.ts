@@ -1,5 +1,6 @@
-import { apiClient } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/auth/token";
+import { useAgentRuntimeConfigStore } from "./runtimeConfig";
+import { apiClient } from "@/lib/api/client";
 import type { Experience, ConversationSession, ConversationMessage } from "@earth-online/shared";
 
 // --- Experience ---
@@ -37,27 +38,6 @@ export async function listMessages(sessionId: string): Promise<ConversationMessa
   return res.data.data;
 }
 
-interface SendMessageResult {
-  user_message: ConversationMessage;
-  agent_message: ConversationMessage | null;
-  error?: string;
-}
-
-export async function sendMessage(
-  sessionId: string,
-  content: string,
-  contentType?: string,
-): Promise<SendMessageResult> {
-  const res = await apiClient.post<{ data: SendMessageResult }>(
-    `/sessions/${sessionId}/messages`,
-    {
-      content,
-      content_type: contentType,
-    },
-  );
-  return res.data.data;
-}
-
 // --- Summary ---
 
 export interface ConversationSummary {
@@ -69,36 +49,59 @@ export interface ConversationSummary {
 }
 
 export async function generateSummary(sessionId: string): Promise<ConversationSummary> {
-  const res = await apiClient.post<{ data: ConversationSummary }>(
-    `/sessions/${sessionId}/summary`,
-  );
+  const res = await apiClient.post<{ data: ConversationSummary }>(`/sessions/${sessionId}/summary`);
   return res.data.data;
 }
 
 // --- SSE Stream ---
 
-export function streamSession(
+export interface StreamCallbacks {
+  onToken: (token: string) => void;
+  onDone?: (data: { userMessageId: string; agentMessageId: string }) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Send a message and stream the agent's reply token by token via SSE.
+ * Returns an AbortController so the caller can cancel the stream.
+ */
+export function sendMessageStream(
   sessionId: string,
-  onToken: (token: string) => void,
-  onDone?: () => void,
-  onError?: (error: Error) => void,
+  content: string,
+  callbacks: StreamCallbacks,
 ): AbortController {
   const controller = new AbortController();
 
   (async () => {
     try {
       const token = getAccessToken();
-      const response = await fetch(`/api/v1/agent/sessions/${sessionId}/stream`, {
-        method: "GET",
+      const agentConfig = useAgentRuntimeConfigStore.getState();
+      const agentRuntime = agentConfig.isConfigured
+        ? {
+            api_url: agentConfig.apiUrl,
+            api_key: agentConfig.apiKey,
+            model: agentConfig.model,
+            system_prompt: agentConfig.systemPrompt,
+          }
+        : undefined;
+
+      const response = await fetch(`/api/v1/sessions/${sessionId}/messages/stream`, {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
           Accept: "text/event-stream",
         },
+        body: JSON.stringify({
+          content,
+          agent_runtime: agentRuntime,
+        }),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        throw new Error(`Stream failed: ${response.status}`);
+        const errText = await response.text().catch(() => "");
+        throw new Error(`Stream failed: ${response.status} ${errText}`);
       }
 
       if (!response.body) {
@@ -117,35 +120,36 @@ export function streamSession(
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            continue;
-          }
-          if (line.startsWith("data: ")) {
-            const payload = line.slice(6).trim();
-            if (!payload) continue;
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (!payload) continue;
 
-            try {
-              const data = JSON.parse(payload);
-              if (data.content) {
-                onToken(data.content);
-              }
-              if (data.ok !== undefined) {
-                onDone?.();
-              }
-            } catch {
-              // Ignore parse errors for partial data
+          try {
+            const data = JSON.parse(payload);
+            if (data.error) {
+              callbacks.onError?.(new Error(data.error));
+              return;
             }
+            if (data.token) {
+              callbacks.onToken(data.token);
+            }
+            if (data.done) {
+              callbacks.onDone?.({
+                userMessageId: data.user_message_id || "",
+                agentMessageId: data.agent_message_id || "",
+              });
+              return;
+            }
+          } catch {
+            // Ignore partial JSON
           }
         }
 
-        if (done) {
-          onDone?.();
-          break;
-        }
+        if (done) break;
       }
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
-        onError?.(err);
+        callbacks.onError?.(err);
       }
     }
   })();

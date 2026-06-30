@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/earth-online/api/internal/database"
@@ -168,6 +170,16 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		Content:   req.Content,
 	}
 
+	// Forward browser-side LLM credentials if provided
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		agentReq.AgentRuntime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
 	agentResp, err := h.agentClient.SendMessage(ctx, agentReq)
 	if err != nil {
 		h.logger.Error("agent call failed", "error", err)
@@ -201,6 +213,161 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 			"agent_message": h.toMessageResponse(&agentMsg),
 		},
 	})
+}
+
+// SendMessageStream handles POST /sessions/:id/messages/stream
+// Streams the agent's reply token by token via SSE, then saves the complete message.
+func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	sessionID := c.Param("id")
+
+	// Verify session belongs to user
+	var session database.ConversationSession
+	if err := h.db.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+			return
+		}
+		h.logger.Error("failed to query session", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	var req dto.CreateMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request parameters"})
+		return
+	}
+
+	contentType := "text"
+	if req.ContentType != nil {
+		contentType = *req.ContentType
+	}
+
+	// Save user message
+	userMsg := database.ConversationMessage{
+		SessionID:   sessionID,
+		Role:        "user",
+		Content:     req.Content,
+		ContentType: contentType,
+		AssetID:     req.AssetID,
+	}
+	if err := h.db.Create(&userMsg).Error; err != nil {
+		h.logger.Error("failed to save user message", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save message"})
+		return
+	}
+
+	// Build agent request
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
+	defer cancel()
+
+	agentReq := &agent.SendMessageRequest{
+		SessionID: sessionID,
+		Content:   req.Content,
+	}
+
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		agentReq.AgentRuntime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
+	// Call Agent service with streaming
+	streamBody, err := h.agentClient.SendMessageStream(ctx, agentReq)
+	if err != nil {
+		h.logger.Error("agent stream call failed", "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "agent service unavailable"})
+		return
+	}
+	defer streamBody.Close()
+
+	// Set SSE headers
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache, no-transform")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.WriteHeader(http.StatusOK)
+
+	flusher, _ := c.Writer.(http.Flusher)
+
+	// Read SSE from Agent service, parse tokens, proxy to frontend
+	scanner := bufio.NewScanner(streamBody)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	var fullReply strings.Builder
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Only process data: lines
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		payload := strings.TrimPrefix(line, "data: ")
+
+		var data struct {
+			Token string `json:"token"`
+			Done  bool   `json:"done"`
+			Reply string `json:"reply"`
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(payload), &data); err != nil {
+			continue
+		}
+
+		if data.Error != "" {
+			errJSON, _ := json.Marshal(map[string]any{"error": data.Error})
+			c.Writer.Write([]byte("data: " + string(errJSON) + "\n\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
+			break
+		}
+
+		if data.Token != "" {
+			fullReply.WriteString(data.Token)
+			tokenJSON, _ := json.Marshal(map[string]any{"token": data.Token})
+			c.Writer.Write([]byte("data: " + string(tokenJSON) + "\n\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+
+		if data.Done {
+			reply := data.Reply
+			if reply == "" {
+				reply = fullReply.String()
+			}
+
+			// Save agent message to database
+			agentMsg := database.ConversationMessage{
+				SessionID:   sessionID,
+				Role:        "agent",
+				Content:     reply,
+				ContentType: "text",
+			}
+			if saveErr := h.db.Create(&agentMsg).Error; saveErr != nil {
+				h.logger.Error("failed to save agent message", "error", saveErr)
+			}
+
+			doneJSON, _ := json.Marshal(map[string]any{
+				"done":             true,
+				"user_message_id":  userMsg.ID,
+				"agent_message_id": agentMsg.ID,
+			})
+			c.Writer.Write([]byte("data: " + string(doneJSON) + "\n\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) {
+		h.logger.Error("stream scan error", "error", err)
+	}
 }
 
 // StreamSession handles GET /agent/sessions/:id/stream

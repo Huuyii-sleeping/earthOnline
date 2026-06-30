@@ -60,10 +60,10 @@ export function GrowthProfileSection() {
   const refreshing = refreshMutation.isPending;
 
   return (
-    <section className="rounded-lg border bg-card p-6 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Brain className="h-5 w-5" />
           </div>
           <div>
@@ -78,6 +78,7 @@ export function GrowthProfileSection() {
         <Button
           variant="outline"
           size="sm"
+          className="shrink-0"
           onClick={() => refreshMutation.mutate()}
           disabled={refreshing}
         >
@@ -118,8 +119,10 @@ export function GrowthProfileSection() {
               <h3 className="mb-2 text-sm font-medium text-muted-foreground">经历类型分布</h3>
               <div className="space-y-2">
                 {profile.experience_types.map((t) => (
-                  <div key={t.type} className="flex items-center gap-3">
-                    <span className="w-16 shrink-0 text-xs text-muted-foreground">{t.type}</span>
+                  <div key={t.type} className="flex items-center gap-2 sm:gap-3">
+                    <span className="w-12 shrink-0 text-xs text-muted-foreground sm:w-16">
+                      {t.type}
+                    </span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-primary/60"

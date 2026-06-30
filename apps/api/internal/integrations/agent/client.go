@@ -30,9 +30,19 @@ func NewClient(baseURL string, logger *slog.Logger) *Client {
 
 // SendMessageRequest is the payload sent to the Agent service.
 type SendMessageRequest struct {
-	SessionID string                 `json:"session_id"`
-	Content   string                 `json:"content"`
-	Context   map[string]interface{} `json:"context,omitempty"`
+	SessionID    string                 `json:"session_id"`
+	Content      string                 `json:"content"`
+	Context      map[string]interface{} `json:"context,omitempty"`
+	AgentRuntime *AgentRuntimePayload   `json:"agent_runtime,omitempty"`
+}
+
+// AgentRuntimePayload carries browser-side LLM credentials so the Agent
+// service can call the LLM without a server-side API key.
+type AgentRuntimePayload struct {
+	APIURL       string `json:"api_url"`
+	APIKey       string `json:"api_key"`
+	Model        string `json:"model"`
+	SystemPrompt string `json:"system_prompt"`
 }
 
 // SendMessageResponse is what the Agent service returns for a non-streaming message.
@@ -72,6 +82,36 @@ func (c *Client) SendMessage(ctx context.Context, req *SendMessageRequest) (*Sen
 	}
 
 	return &result, nil
+}
+
+// SendMessageStream sends a user message to the Agent and returns an SSE stream
+// of tokens. The caller is responsible for closing the returned ReadCloser.
+func (c *Client) SendMessageStream(ctx context.Context, req *SendMessageRequest) (io.ReadCloser, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/sessions/" + req.SessionID + "/messages/stream"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create stream request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent stream: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("agent stream returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	return resp.Body, nil
 }
 
 // StreamSession opens an SSE connection to the Agent service and returns the raw response body

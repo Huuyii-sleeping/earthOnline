@@ -41,7 +41,7 @@ export default function YearReviewDetailPage() {
 
   if (reviewQuery.error || !reviewQuery.data) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl">
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center">
           <BookOpen className="h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-sm font-medium">{yearNum} 年还没有生成年度回顾</p>
@@ -56,7 +56,7 @@ export default function YearReviewDetailPage() {
   const review = reviewQuery.data;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/year-review">
@@ -82,8 +82,8 @@ export default function YearReviewDetailPage() {
 
       {/* 年度封面 */}
       <header className="space-y-4 text-center">
-        <div className="text-5xl font-bold text-primary">{review.year}</div>
-        <h1 className="text-2xl font-bold">{review.title}</h1>
+        <div className="text-4xl font-bold text-primary sm:text-5xl">{review.year}</div>
+        <h1 className="text-xl font-bold sm:text-2xl">{review.title}</h1>
         {review.annual_themes.length > 0 && (
           <div className="flex flex-wrap justify-center gap-2">
             {review.annual_themes.map((theme) => (
@@ -96,7 +96,7 @@ export default function YearReviewDetailPage() {
             ))}
           </div>
         )}
-        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground sm:gap-4">
           <span className="flex items-center gap-1">
             <Award className="h-4 w-4" />
             {review.medal_count} 枚奖章

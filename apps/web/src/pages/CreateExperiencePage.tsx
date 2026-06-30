@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import {
   createExperience,
   createSession,
-  sendMessage,
+  sendMessageStream,
   generateSummary,
   type ConversationSummary,
 } from "@/features/agent/conversationApi";
@@ -51,7 +51,12 @@ const MarkdownMessage = lazy(() =>
 
 function AssistantMarkdown({ content }: { content: string }) {
   if (!content) {
-    return <span className="text-muted-foreground">Agent 正在输入...</span>;
+    return (
+      <span className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Agent 正在思考...
+      </span>
+    );
   }
 
   return (
@@ -148,30 +153,46 @@ export default function CreateExperiencePage() {
     try {
       const currentSessionId = await ensureExperienceAndSession();
 
-      // Send message via Go API (which proxies to Agent service)
-      const result = await sendMessage(currentSessionId, userContent);
-
-      // Update messages with real data
-      setMessages((prev) =>
-        prev.map((item) => {
-          if (item.id === userMessage.id) {
-            return { ...item, id: result.user_message.id };
-          }
-          if (item.id === assistantMessageId) {
-            return {
-              ...item,
-              id: result.agent_message?.id || assistantMessageId,
-              content: result.agent_message?.content || "Agent 暂时无法回复，请稍后再试。",
-            };
-          }
-          return item;
-        }),
-      );
+      // Stream the agent's reply token by token
+      sendMessageStream(currentSessionId, userContent, {
+        onToken: (token) => {
+          setMessages((prev) =>
+            prev.map((item) =>
+              item.id === assistantMessageId ? { ...item, content: item.content + token } : item,
+            ),
+          );
+        },
+        onDone: (data) => {
+          setMessages((prev) =>
+            prev.map((item) => {
+              if (item.id === userMessage.id) {
+                return { ...item, id: data.userMessageId || userMessage.id };
+              }
+              if (item.id === assistantMessageId) {
+                return { ...item, id: data.agentMessageId || assistantMessageId };
+              }
+              return item;
+            }),
+          );
+          setIsSending(false);
+        },
+        onError: (err) => {
+          const errorMessage = err instanceof Error ? err.message : "发送消息失败";
+          setError(errorMessage);
+          setMessages((prev) =>
+            prev.map((item) =>
+              item.id === assistantMessageId
+                ? { ...item, content: "抱歉，我暂时无法回复，请稍后再试。" }
+                : item,
+            ),
+          );
+          setIsSending(false);
+        },
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "发送消息失败";
       setError(errorMessage);
 
-      // Update assistant message with error
       setMessages((prev) =>
         prev.map((item) =>
           item.id === assistantMessageId
@@ -179,7 +200,6 @@ export default function CreateExperiencePage() {
             : item,
         ),
       );
-    } finally {
       setIsSending(false);
     }
   };
@@ -264,12 +284,12 @@ export default function CreateExperiencePage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7.5rem)] flex-col">
       {/* 顶部标题 */}
-      <div className="flex items-center gap-3 border-b border-[var(--glass-border)] pb-4">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">记录今天的经历</h1>
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--glass-border)] pb-3 sm:gap-3 sm:pb-4">
+        <MessageSquare className="h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-semibold sm:text-xl">记录今天的经历</h1>
           <p className="mt-1 text-xs text-muted-foreground">
             {experience
               ? `经历 ID：${experience.id.slice(0, 8)}... · 状态：${experience.status}`
@@ -280,18 +300,19 @@ export default function CreateExperiencePage() {
           type="button"
           variant="outline"
           size="sm"
+          className="shrink-0"
           onClick={() => setIsConfigOpen((current) => !current)}
         >
-          <SlidersHorizontal className="mr-2 h-4 w-4" />
-          奖章生成配置
+          <SlidersHorizontal className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">奖章生成配置</span>
           <ChevronDown
-            className={`ml-2 h-4 w-4 transition-transform ${isConfigOpen ? "rotate-180" : ""}`}
+            className={`h-4 w-4 transition-transform sm:ml-2 ${isConfigOpen ? "rotate-180" : ""}`}
           />
         </Button>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="shrink-0">
           <Link to="/settings/agent">
-            <Settings className="mr-2 h-4 w-4" />
-            Agent API
+            <Settings className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Agent API</span>
           </Link>
         </Button>
       </div>
@@ -388,13 +409,6 @@ export default function CreateExperiencePage() {
             )}
           </div>
         ))}
-
-        {isSending && (
-          <div className="mr-auto max-w-[82%] rounded-lg px-4 py-3 text-sm text-muted-foreground glass">
-            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-            Agent 正在思考...
-          </div>
-        )}
 
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -516,7 +530,7 @@ export default function CreateExperiencePage() {
       )}
 
       {/* 底部输入区域 */}
-      <div className="flex flex-col gap-3 border-t border-[var(--glass-border)] pt-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 border-t border-[var(--glass-border)] pt-3 sm:flex-row sm:items-center sm:gap-3 sm:pt-4">
         <Input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -525,37 +539,42 @@ export default function CreateExperiencePage() {
           className="flex-1"
           disabled={isSending || isGeneratingMedal}
         />
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           {sessionId && (
             <Button
               onClick={handleGenerateSummary}
               disabled={isSending || isGeneratingSummary || isGeneratingMedal}
               variant="outline"
+              className="shrink-0"
             >
               {isGeneratingSummary ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              生成总结
+              <span className="hidden sm:inline">生成总结</span>
+              <span className="sm:hidden">总结</span>
             </Button>
           )}
           <Button
             onClick={handleGenerateMedal}
             disabled={!canGenerateMedal || isSending || isGeneratingMedal}
             variant="outline"
+            className="shrink-0"
           >
             {isGeneratingMedal ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Award className="mr-2 h-4 w-4" />
             )}
-            生成奖章
+            <span className="hidden sm:inline">生成奖章</span>
+            <span className="sm:hidden">奖章</span>
           </Button>
           <Button
             onClick={handleSend}
             disabled={!message.trim() || isSending || isGeneratingMedal}
             aria-label="发送经历"
+            className="shrink-0"
           >
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

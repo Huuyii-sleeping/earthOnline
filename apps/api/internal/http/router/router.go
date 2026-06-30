@@ -38,11 +38,10 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	// serves normally; only async profile refresh is affected.
 	taskQueueClient := taskqueue.NewClient(cfg.RedisAddr, logger)
 
-	// MinIO client
+	// MinIO client (optional — degrades gracefully if MinIO is not available)
 	minioClient, err := storage.NewMinIOClient(cfg.S3Endpoint, cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.S3Bucket, logger)
 	if err != nil {
-		logger.Error("failed to initialize minio client", "error", err)
-		os.Exit(1)
+		logger.Warn("MinIO client init failed, asset uploads will be unavailable", "error", err)
 	}
 
 	// Handlers
@@ -100,6 +99,7 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.POST("/experiences/:id/sessions", conversationHandler.CreateSession)
 		authRequired.GET("/sessions/:id/messages", conversationHandler.ListMessages)
 		authRequired.POST("/sessions/:id/messages", conversationHandler.SendMessage)
+		authRequired.POST("/sessions/:id/messages/stream", conversationHandler.SendMessageStream)
 		authRequired.POST("/sessions/:id/summary", conversationHandler.GenerateSummary)
 
 		// Agent SSE proxy

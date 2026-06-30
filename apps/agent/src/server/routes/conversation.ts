@@ -1,9 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import {
   processConversation,
+  streamConversation,
   generateConversationSummary,
 } from "../../graphs/conversation.graph.js";
-import { getLLMProvider } from "../../providers/index.js";
+import {
+  getLLMProvider,
+  getLLMProviderFromRuntime,
+  type AgentRuntimeConfig,
+} from "../../providers/index.js";
 import { checkSafety } from "../../safety/index.js";
 
 interface SendMessageBody {
@@ -11,6 +16,7 @@ interface SendMessageBody {
   content: string;
   context?: Record<string, unknown>;
   history?: { role: "user" | "assistant"; content: string }[];
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 export async function conversationRoutes(app: FastifyInstance) {
@@ -39,7 +45,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await processConversation(history, body.content);
+      const result = await processConversation(history, body.content, body.agent_runtime);
       return {
         reply: result.reply,
         done: result.done,
@@ -53,6 +59,57 @@ export async function conversationRoutes(app: FastifyInstance) {
         done: false,
       });
     }
+  });
+
+  // Streaming: send a message and stream the reply token by token via SSE
+  app.post("/sessions/:sessionId/messages/stream", async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const body = request.body as SendMessageBody;
+
+    if (!body?.content) {
+      return reply.code(400).send({ error: "content is required" });
+    }
+
+    const history = body.history || [];
+
+    // Safety check
+    const safety = checkSafety(body.content);
+    if (!safety.safe) {
+      request.log.warn({ reason: safety.reason }, "safety check triggered");
+      reply.raw.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+      });
+      reply.raw.write(`data: ${JSON.stringify({ token: safety.safeResponse })}\n\n`);
+      reply.raw.write(`data: ${JSON.stringify({ done: true, reply: safety.safeResponse })}\n\n`);
+      reply.raw.end();
+      return;
+    }
+
+    reply.raw.writeHead(200, {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+    });
+
+    try {
+      let fullReply = "";
+      for await (const token of streamConversation(history, body.content, body.agent_runtime)) {
+        fullReply += token;
+        reply.raw.write(`data: ${JSON.stringify({ token })}\n\n`);
+      }
+      reply.raw.write(
+        `data: ${JSON.stringify({ done: true, reply: fullReply, session_id: sessionId })}\n\n`,
+      );
+    } catch (error) {
+      request.log.error(error, "streaming conversation failed");
+      reply.raw.write(
+        `data: ${JSON.stringify({ error: "conversation streaming failed", done: true })}\n\n`,
+      );
+    }
+
+    reply.raw.end();
   });
 
   // Generate pre-generation summary

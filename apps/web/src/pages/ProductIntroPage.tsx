@@ -59,11 +59,11 @@ export default function ProductIntroPage() {
   return (
     <div className="relative z-10 min-h-screen">
       {/* 导航栏 — glassmorphism */}
-      <header className="glass-nav sticky top-0 z-50">
+      <header className="glass-nav sticky top-0 z-50 pt-safe">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold">
             <Bot className="h-4 w-4" />
-            经历成就官
+            <span className="hidden sm:inline">经历成就官</span>
           </Link>
           <div className="flex items-center gap-3">
             <Button
@@ -84,27 +84,27 @@ export default function ProductIntroPage() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl flex-col px-4 py-12 sm:px-6">
+        <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl flex-col px-4 py-10 sm:px-6 sm:py-12">
           <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl px-3 py-1 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" />
             Personal experience achievement system
           </div>
 
-          <div className="mx-auto mt-10 max-w-5xl text-center">
-            <h1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.055em] sm:text-7xl lg:text-8xl">
+          <div className="mx-auto mt-8 max-w-5xl text-center sm:mt-10">
+            <h1 className="text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.055em] sm:text-7xl lg:text-8xl">
               把真实经历变成
               <br />
               <span className="bg-gradient-to-r from-[var(--orb-gold)] via-[var(--orb-coral)] to-[var(--orb-sage)] bg-clip-text text-transparent">
                 可以展示的成就
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-muted-foreground sm:mt-6 sm:text-lg">
               经历成就官让用户把一天的经历交给 Agent。系统会追问、提炼、生成一枚专属奖章，
               让生活不只是被记录，而是被理解和看见。
             </p>
           </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-8 sm:flex-row">
             <Button asChild size="lg" className="h-11 glass-strong rounded-lg px-5">
               <Link to="/app">
                 开始创建经历
@@ -117,7 +117,7 @@ export default function ProductIntroPage() {
           </div>
 
           {/* Product mockup — glass card */}
-          <div className="glass-card mx-auto mt-12 w-full max-w-5xl overflow-hidden p-0">
+          <div className="glass-card mx-auto mt-10 w-full max-w-5xl overflow-hidden p-0 sm:mt-12">
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-3">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <PanelTop className="h-3.5 w-3.5" />

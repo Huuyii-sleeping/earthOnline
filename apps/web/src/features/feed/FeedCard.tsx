@@ -59,10 +59,10 @@ export default function FeedCard({ item }: { item: FeedItem }) {
   }
 
   return (
-    <div className="glass-card p-5">
+    <div className="glass-card p-4 sm:p-5">
       <Link to={`/medals/${item.medal_id}`} className="block">
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-primary">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-primary sm:h-14 sm:w-14">
             {item.image_url ? (
               <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" />
             ) : (
@@ -96,7 +96,7 @@ export default function FeedCard({ item }: { item: FeedItem }) {
       )}
 
       {/* 轻互动 */}
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--glass-border)] pt-4">
+      <div className="mt-4 flex flex-wrap gap-1.5 border-t border-[var(--glass-border)] pt-3 sm:gap-2 sm:pt-4">
         {reactionConfig.map(({ type, label, icon: Icon }) => {
           const active = reacted.has(type);
           const count = counts[type] ?? 0;
@@ -108,13 +108,13 @@ export default function FeedCard({ item }: { item: FeedItem }) {
               type="button"
               onClick={() => toggleReaction(type)}
               disabled={pending}
-              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-60 ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-60 sm:px-3 ${
                 active ? "border-amber-300 bg-amber-50 text-amber-800" : "hover:bg-muted/50"
               }`}
               aria-pressed={active}
             >
               <Icon className="h-3.5 w-3.5" />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
               {count > 0 && <span className="ml-0.5 tabular-nums">{count}</span>}
             </button>
           );

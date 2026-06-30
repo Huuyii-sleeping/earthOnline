@@ -20,10 +20,20 @@ type SessionResponse struct {
 
 // --- Conversation Message ---
 
+// AgentRuntimeConfig is sent by the frontend so the Agent service can use
+// the user's browser-configured LLM credentials when no server-side key exists.
+type AgentRuntimeConfig struct {
+	APIURL       string `json:"api_url"`
+	APIKey       string `json:"api_key"`
+	Model        string `json:"model"`
+	SystemPrompt string `json:"system_prompt"`
+}
+
 type CreateMessageRequest struct {
-	Content     string  `json:"content" binding:"required"`
-	ContentType *string `json:"content_type" binding:"omitempty,oneof=text image audio generated_summary"`
-	AssetID     *string `json:"asset_id" binding:"omitempty"`
+	Content      string              `json:"content" binding:"required"`
+	ContentType  *string             `json:"content_type" binding:"omitempty,oneof=text image audio generated_summary"`
+	AssetID      *string             `json:"asset_id" binding:"omitempty"`
+	AgentRuntime *AgentRuntimeConfig `json:"agent_runtime" binding:"omitempty"`
 }
 
 type MessageResponse struct {

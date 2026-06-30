@@ -94,6 +94,36 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Safe area utilities for notched devices */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ── Mobile Aurora Optimization ── */
+@media (max-width: 640px) {
+  .aurora-orb-1 {
+    width: 350px;
+    height: 350px;
+  }
+  .aurora-orb-2 {
+    width: 300px;
+    height: 300px;
+  }
+  .aurora-orb-3 {
+    width: 250px;
+    height: 250px;
+  }
+  .aurora-orb-4 {
+    width: 200px;
+    height: 200px;
   }
 }
 

@@ -1,5 +1,12 @@
-import { conversationFollowupPromptV1, experienceSummaryPromptV1 } from "../prompts/conversation-followup.v1.js";
-import { getLLMProvider } from "../providers/index.js";
+import {
+  conversationFollowupPromptV1,
+  experienceSummaryPromptV1,
+} from "../prompts/conversation-followup.v1.js";
+import {
+  getLLMProvider,
+  getLLMProviderFromRuntime,
+  type AgentRuntimeConfig,
+} from "../providers/index.js";
 import { checkSafety } from "../safety/index.js";
 import type { ChatMessage } from "../providers/types.js";
 
@@ -25,6 +32,7 @@ export interface ConversationResult {
 export async function processConversation(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<ConversationResult> {
   // 1. Safety check
   const safetyResult = checkSafety(userMessage);
@@ -42,30 +50,66 @@ export async function processConversation(
   );
 
   // 3. Build messages for LLM
-  const systemPrompt = conversationFollowupPromptV1.template;
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...history.map((h) => ({
-      role: h.role === "user" ? "user" as const : "assistant" as const,
-      content: h.content,
-    })),
-    { role: "user", content: userMessage },
-  ];
+  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
+  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
 
   // 4. Call LLM
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   // 5. Check if agent thinks it's ready to summarize
   const summaryKeywords = ["总结", "准备好了", "可以生成", "ready to generate", "summary"];
-  const isReady = wantsToGenerate || summaryKeywords.some((kw) =>
-    response.content.toLowerCase().includes(kw.toLowerCase()),
-  );
+  const isReady =
+    wantsToGenerate ||
+    summaryKeywords.some((kw) => response.content.toLowerCase().includes(kw.toLowerCase()));
 
   return {
     reply: response.content,
     done: isReady,
   };
+}
+
+/**
+ * Stream a conversation response token by token.
+ * Returns an async generator that yields text chunks.
+ */
+export async function* streamConversation(
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string,
+  runtime?: AgentRuntimeConfig | null,
+): AsyncGenerator<string, void, unknown> {
+  // 1. Safety check — if triggered, yield the safe response as a single chunk
+  const safetyResult = checkSafety(userMessage);
+  if (!safetyResult.safe) {
+    yield safetyResult.safeResponse!;
+    return;
+  }
+
+  // 2. Build messages for LLM
+  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
+  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
+
+  // 3. Stream from LLM
+  const provider = getLLMProviderFromRuntime(runtime);
+  yield* provider.stream(messages);
+}
+
+/**
+ * Build the chat message array from system prompt, history, and current user message.
+ */
+function buildChatMessages(
+  systemPrompt: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string,
+): ChatMessage[] {
+  return [
+    { role: "system", content: systemPrompt },
+    ...history.map((h) => ({
+      role: h.role === "user" ? ("user" as const) : ("assistant" as const),
+      content: h.content,
+    })),
+    { role: "user", content: userMessage },
+  ];
 }
 
 /**
