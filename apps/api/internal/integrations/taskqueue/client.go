@@ -17,6 +17,10 @@ import (
 // Task type identifiers shared between the API (producer) and worker (consumer).
 const (
 	TaskGrowthProfileRefresh = "growth_profile.refresh_user"
+
+	// TaskYearReviewGenerateUser enqueues a single user's annual review
+	// generation. Shared so the API server can also enqueue on-demand.
+	TaskYearReviewGenerateUser = "year_review.generate_user"
 )
 
 // GrowthProfileRefreshPayload asks the worker to refresh a single user's
@@ -107,4 +111,51 @@ func MustNewClient(redisAddr string, logger *slog.Logger) *Client {
 		panic(fmt.Errorf("task queue client is nil"))
 	}
 	return c
+}
+
+// YearReviewGenerateUserPayload mirrors the worker's yearReviewGenerateUserPayload.
+type YearReviewGenerateUserPayload struct {
+	UserID  string `json:"user_id"`
+	Year    int    `json:"year"`
+	Trigger string `json:"trigger"`
+}
+
+// EnqueueYearReviewGenerateUser schedules a best-effort annual review
+// generation for a single user. Deduplicated with a 24h Unique window so
+// repeated triggers within the same day collapse.
+func (c *Client) EnqueueYearReviewGenerateUser(ctx context.Context, userID string, year int, trigger string) {
+	if c == nil || c.client == nil {
+		return
+	}
+	if userID == "" || year == 0 {
+		return
+	}
+	if trigger == "" {
+		trigger = "manual"
+	}
+
+	payload, err := json.Marshal(YearReviewGenerateUserPayload{
+		UserID:  userID,
+		Year:    year,
+		Trigger: trigger,
+	})
+	if err != nil {
+		c.logger.Error("failed to marshal year review payload", "error", err, "user_id", userID)
+		return
+	}
+
+	task := asynq.NewTask(TaskYearReviewGenerateUser, payload)
+	opts := []asynq.Option{
+		asynq.Queue("low"),
+		asynq.MaxRetry(1),
+		asynq.Timeout(30 * time.Minute),
+		asynq.Unique(24 * time.Hour),
+	}
+
+	info, err := c.client.EnqueueContext(ctx, task, opts...)
+	if err != nil {
+		c.logger.Warn("failed to enqueue year review", "error", err, "user_id", userID, "year", year)
+		return
+	}
+	c.logger.Info("enqueued year review", "task_id", info.ID, "user_id", userID, "year", year, "trigger", trigger)
 }

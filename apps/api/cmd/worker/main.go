@@ -17,6 +17,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/domain/stagesummary"
+	"github.com/earth-online/api/internal/domain/yearreview"
 	"github.com/earth-online/api/internal/integrations/agent"
 	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/earth-online/api/internal/storage"
@@ -34,6 +35,10 @@ const (
 	// per-user refresh. The per-user task type lives in the taskqueue package so
 	// the API server can enqueue it too.
 	TaskGrowthProfileRefreshActiveUsers = "growth_profile.refresh_active_users"
+
+	// TaskYearReviewGenerateYear is the annual sweep that enqueues per-user
+	// year review generation. The per-user task type lives in taskqueue.
+	TaskYearReviewGenerateYear = "year_review.generate_year"
 )
 
 // concurrency is how many tasks the worker processes in parallel.
@@ -52,6 +57,7 @@ type worker struct {
 	openai      *openAIClient
 	stage       *stagesummary.Service
 	growth      *growthprofile.Service
+	yearReview  *yearreview.Service
 	queue       *taskqueue.Client
 	logger      *slog.Logger
 }
@@ -98,6 +104,7 @@ func main() {
 		openai:      openaiCli,
 		stage:       stagesummary.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
 		growth:      growthprofile.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
+		yearReview:  yearreview.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
 		queue:       taskqueue.NewClient(cfg.RedisAddr, logger),
 		logger:      logger,
 	}
@@ -121,6 +128,8 @@ func main() {
 	mux.HandleFunc(TaskStageSummaryPeriod, w.handleStageSummaryPeriod)
 	mux.HandleFunc(taskqueue.TaskGrowthProfileRefresh, w.handleGrowthProfileRefresh)
 	mux.HandleFunc(TaskGrowthProfileRefreshActiveUsers, w.handleGrowthProfileRefreshActiveUsers)
+	mux.HandleFunc(taskqueue.TaskYearReviewGenerateUser, w.handleYearReviewGenerateUser)
+	mux.HandleFunc(TaskYearReviewGenerateYear, w.handleYearReviewGenerateYear)
 
 	scheduler := newStageSummaryScheduler(cfg.RedisAddr, logger)
 	if err := registerStageSummarySchedules(scheduler); err != nil {
@@ -144,6 +153,17 @@ func main() {
 		}
 	}()
 
+	yearReviewScheduler := newYearReviewScheduler(cfg.RedisAddr, logger)
+	if err := registerYearReviewSchedules(yearReviewScheduler); err != nil {
+		logger.Error("failed to register year review schedules", "error", err)
+		os.Exit(1)
+	}
+	go func() {
+		if err := yearReviewScheduler.Run(); err != nil {
+			logger.Error("year review scheduler stopped with error", "error", err)
+		}
+	}()
+
 	// Graceful shutdown on SIGINT / SIGTERM.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -153,6 +173,7 @@ func main() {
 		logger.Info("shutting down worker...")
 		scheduler.Shutdown()
 		growthScheduler.Shutdown()
+		yearReviewScheduler.Shutdown()
 		srv.Shutdown()
 		w.queue.Close()
 	}()

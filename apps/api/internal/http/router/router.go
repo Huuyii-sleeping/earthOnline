@@ -7,6 +7,7 @@ import (
 	"github.com/earth-online/api/internal/config"
 	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/domain/stagesummary"
+	"github.com/earth-online/api/internal/domain/yearreview"
 	"github.com/earth-online/api/internal/http/handlers"
 	"github.com/earth-online/api/internal/http/middleware"
 	"github.com/earth-online/api/internal/integrations/agent"
@@ -60,6 +61,8 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	agentProfileHandler := handlers.NewAgentProfileHandler(db, logger)
 	growthProfileService := growthprofile.NewService(db, agentClient, logger)
 	growthProfileHandler := handlers.NewGrowthProfileHandler(db, growthProfileService, logger)
+	yearReviewService := yearreview.NewService(db, agentClient, logger)
+	yearReviewHandler := handlers.NewYearReviewHandler(db, yearReviewService, taskQueueClient, logger)
 
 	api := r.Group("/api/v1")
 
@@ -153,5 +156,11 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.GET("/growth-profile", growthProfileHandler.GetGrowthProfile)
 		authRequired.POST("/growth-profile/refresh", growthProfileHandler.RefreshGrowthProfile)
 		authRequired.GET("/growth-insights", growthProfileHandler.ListGrowthInsights)
+
+		// Annual reviews (M9)
+		authRequired.GET("/annual-reviews", yearReviewHandler.ListYearReviews)
+		authRequired.GET("/annual-reviews/:year", yearReviewHandler.GetYearReview)
+		authRequired.POST("/annual-reviews/generate", yearReviewHandler.GenerateYearReview)
+		authRequired.DELETE("/annual-reviews/:year", yearReviewHandler.DeleteYearReview)
 	}
 }

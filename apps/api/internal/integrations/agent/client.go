@@ -367,3 +367,130 @@ func (c *Client) GenerateGrowthProfile(ctx context.Context, req *GenerateGrowthP
 
 	return &result, nil
 }
+
+// --- Year review ---
+
+// YearMedalItem is a medal signal fed into year review generation.
+type YearMedalItem struct {
+	ID           string `json:"id,omitempty"`
+	Title        string `json:"title,omitempty"`
+	ShortReason  string `json:"shortReason,omitempty"`
+	MemoryWeight string `json:"memoryWeight,omitempty"`
+	Story        string `json:"story,omitempty"`
+	MeaningFocus string `json:"meaningFocus,omitempty"`
+	CreatedAt    string `json:"createdAt,omitempty"`
+}
+
+// YearStageItem is a stage-summary signal fed into year review generation.
+type YearStageItem struct {
+	PeriodType  string   `json:"periodType,omitempty"`
+	PeriodStart string   `json:"periodStart,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Summary     string   `json:"summary,omitempty"`
+	Story       string   `json:"story,omitempty"`
+	Highlights  []string `json:"highlights,omitempty"`
+}
+
+// GrowthProfileSnapshot is a trimmed view of the growth profile for year
+// review input. May be nil for users without a profile.
+type GrowthProfileSnapshot struct {
+	TraitKeywords  []string `json:"traitKeywords,omitempty"`
+	GrowthKeywords []string `json:"growthKeywords,omitempty"`
+	SummaryText    string   `json:"summaryText,omitempty"`
+}
+
+// YearReviewStats holds aggregate counts for the year.
+type YearReviewStats struct {
+	MedalCount        int `json:"medalCount"`
+	ExperienceCount   int `json:"experienceCount"`
+	StageSummaryCount int `json:"stageSummaryCount"`
+}
+
+// GenerateYearReviewRequest is the payload sent to the Agent's year-review endpoint.
+type GenerateYearReviewRequest struct {
+	Year           int                    `json:"year"`
+	Medals         []YearMedalItem        `json:"medals"`
+	StageSummaries []YearStageItem        `json:"stage_summaries"`
+	GrowthProfile  *GrowthProfileSnapshot `json:"growth_profile,omitempty"`
+	Stats          YearReviewStats        `json:"stats"`
+}
+
+// MilestoneMedal is a medal selected as a year milestone.
+type MilestoneMedal struct {
+	MedalID       string `json:"medalId,omitempty"`
+	Title         string `json:"title"`
+	ShortReason   string `json:"shortReason"`
+	MilestoneType string `json:"milestoneType"`
+	AgentNote     string `json:"agentNote"`
+}
+
+// GrowthArc describes the start–turning–end trajectory of the year.
+type GrowthArc struct {
+	StartState    string   `json:"startState"`
+	TurningPoints []string `json:"turningPoints"`
+	EndState      string   `json:"endState"`
+}
+
+// EmotionArcEntry is one period's emotion summary.
+type EmotionArcEntry struct {
+	Period  string `json:"period"`
+	Emotion string `json:"emotion"`
+	Summary string `json:"summary"`
+}
+
+// KeywordEvolution compares earlier vs later year keywords.
+type KeywordEvolution struct {
+	EarlierKeywords []string `json:"earlierKeywords"`
+	LaterKeywords   []string `json:"laterKeywords"`
+	Shift           string   `json:"shift"`
+}
+
+// GenerateYearReviewResponse is the structured year review returned by Agent.
+type GenerateYearReviewResponse struct {
+	Title            string            `json:"title"`
+	Narrative        string            `json:"narrative"`
+	AnnualThemes     []string          `json:"annualThemes"`
+	MilestoneMedals  []MilestoneMedal  `json:"milestoneMedals"`
+	GrowthArc        GrowthArc         `json:"growthArc"`
+	EmotionArc       []EmotionArcEntry `json:"emotionArc"`
+	KeywordEvolution KeywordEvolution  `json:"keywordEvolution"`
+}
+
+// GenerateYearReview asks the Agent to generate a year-level review.
+// This is a heavy call so the client uses a 180s timeout.
+func (c *Client) GenerateYearReview(ctx context.Context, req *GenerateYearReviewRequest) (*GenerateYearReviewResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/year/review"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Use a per-request timeout override for this heavy call.
+	yearReviewCtx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	defer cancel()
+	httpReq = httpReq.WithContext(yearReviewCtx)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent year review: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("agent year review returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var result GenerateYearReviewResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode year review response: %w", err)
+	}
+
+	return &result, nil
+}

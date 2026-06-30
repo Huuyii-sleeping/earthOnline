@@ -21,5 +21,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&StageSummary{},
 		&GrowthProfile{},
 		&GrowthInsight{},
+		&AnnualReview{},
 	)
 }

@@ -260,3 +260,28 @@ type GrowthInsight struct {
 }
 
 func (GrowthInsight) TableName() string { return "growth_insights" }
+
+// AnnualReview is a user's year-level long narrative review. One row per
+// user per year. It aggregates medals, stage summaries and the growth profile
+// snapshot into a structured retrospective.
+type AnnualReview struct {
+	Base
+	UserID               string  `gorm:"type:uuid;not null;uniqueIndex:idx_annual_review_year;index" json:"user_id"`
+	Year                 int     `gorm:"not null;uniqueIndex:idx_annual_review_year" json:"year"`
+	Status               string  `gorm:"type:varchar(20);not null;default:'completed'" json:"status"`
+	Title                string  `gorm:"type:varchar(100);not null" json:"title"`
+	Narrative            string  `gorm:"type:text;not null" json:"narrative"`
+	AnnualThemesJSON     *string `gorm:"type:jsonb" json:"annual_themes_json"`
+	MilestoneMedalsJSON  *string `gorm:"type:jsonb" json:"milestone_medals_json"`
+	GrowthArcJSON        *string `gorm:"type:jsonb" json:"growth_arc_json"`
+	EmotionArcJSON       *string `gorm:"type:jsonb" json:"emotion_arc_json"`
+	KeywordEvolutionJSON *string `gorm:"type:jsonb" json:"keyword_evolution_json"`
+	MedalCount           int     `gorm:"not null;default:0" json:"medal_count"`
+	StageSummaryCount    int     `gorm:"not null;default:0" json:"stage_summary_count"`
+	ExperienceCount      int     `gorm:"not null;default:0" json:"experience_count"`
+	GeneratedBy          string  `gorm:"type:varchar(20);not null;default:'agent'" json:"generated_by"`
+	Trigger              string  `gorm:"type:varchar(20);not null;default:'manual'" json:"trigger"`
+	ErrorMsg             *string `gorm:"type:text" json:"error_msg"`
+}
+
+func (AnnualReview) TableName() string { return "annual_reviews" }

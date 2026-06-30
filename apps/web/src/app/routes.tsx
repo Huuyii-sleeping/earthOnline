@@ -11,6 +11,8 @@ import UserProfilePage from "@/pages/UserProfilePage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import AgentSettingsPage from "@/pages/AgentSettingsPage";
 import StageSummariesPage from "@/pages/StageSummariesPage";
+import YearReviewListPage from "@/pages/YearReviewListPage";
+import YearReviewDetailPage from "@/pages/YearReviewDetailPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import { useAuth } from "@/features/auth/useAuth";
 
@@ -63,6 +65,8 @@ export function AppRoutes() {
         <Route path="/medals/:id" element={<MedalDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/stage-summaries" element={<StageSummariesPage />} />
+        <Route path="/year-review" element={<YearReviewListPage />} />
+        <Route path="/year-review/:year" element={<YearReviewDetailPage />} />
         <Route path="/users/:id" element={<UserProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings/agent" element={<AgentSettingsPage />} />
