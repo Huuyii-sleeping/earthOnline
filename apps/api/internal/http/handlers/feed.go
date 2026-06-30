@@ -3,9 +3,12 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/earth-online/api/internal/database"
+	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/http/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -23,6 +26,11 @@ func NewFeedHandler(db *gorm.DB, logger *slog.Logger) *FeedHandler {
 const (
 	defaultPageSize = 20
 	maxPageSize     = 50
+
+	// similar recommendation tuning: we score a bounded candidate window in
+	// memory then paginate the scored slice. Kept conservative for M8 volumes.
+	similarCandidateMultiplier = 5
+	similarCandidateMax        = 200
 )
 
 // GetFeed handles GET /feed?tab=&page=&page_size=
@@ -31,8 +39,8 @@ const (
 //   - latest:    all public medals, newest first
 //   - following: public medals from users the viewer follows
 //   - popular:   public medals ranked by interaction count (then recency)
-//   - similar:   MVP fallback to latest (placeholder for future tag/embedding match)
-//   - for-you:   MVP fallback to popular
+//   - similar:   ranked by overlap with the viewer's growth profile keywords
+//   - for-you:   blended weighted ordering of following + popular + recency
 //
 // Each item carries the author summary, interaction counts and the viewer's own
 // interaction/follow state. Permission filtering (public-only) happens here so
@@ -52,6 +60,24 @@ func (h *FeedHandler) GetFeed(c *gin.Context) {
 	base := h.db.Model(&database.Medal{}).Where("visibility = ?", "public")
 
 	switch tab {
+	case "similar":
+		items, total, err := h.similarFeed(viewerID, page, pageSize, offset)
+		if err != nil {
+			h.logger.Error("failed to build similar feed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		c.JSON(http.StatusOK, dto.PaginatedFeedResponse{Data: items, Total: total, Page: page, PageSize: pageSize})
+		return
+	case "for-you":
+		items, total, err := h.forYouFeed(viewerID, page, pageSize, offset)
+		if err != nil {
+			h.logger.Error("failed to build for-you feed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		c.JSON(http.StatusOK, dto.PaginatedFeedResponse{Data: items, Total: total, Page: page, PageSize: pageSize})
+		return
 	case "following":
 		var followingIDs []string
 		if viewerID != "" {
@@ -68,7 +94,7 @@ func (h *FeedHandler) GetFeed(c *gin.Context) {
 			return
 		}
 		base = base.Where("user_id IN ?", followingIDs)
-	case "similar", "latest", "popular", "for-you":
+	case "latest", "popular":
 		// handled below
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tab"})
@@ -85,9 +111,8 @@ func (h *FeedHandler) GetFeed(c *gin.Context) {
 
 	var medals []database.Medal
 	query := base.Session(&gorm.Session{})
-	if tab == "popular" || tab == "for-you" {
-		// Rank by interaction count via a left join, then recency. Use a
-		// subquery to count interactions per medal.
+	if tab == "popular" {
+		// Rank by interaction count via a left join, then recency.
 		query = query.
 			Select("medals.*, COALESCE(ic.cnt, 0) AS interaction_count").
 			Joins("LEFT JOIN (SELECT medal_id, COUNT(*) AS cnt FROM medal_interactions GROUP BY medal_id) ic ON ic.medal_id = medals.id").
@@ -116,6 +141,159 @@ func (h *FeedHandler) GetFeed(c *gin.Context) {
 		Page:     page,
 		PageSize: pageSize,
 	})
+}
+
+// similarFeed ranks public medals by overlap with the viewer's growth profile
+// keywords. Users without a profile fall back to the latest ordering so the tab
+// still returns content. Matching is intentionally coarse (substring over title
+// + short_reason) per the M8 plan — no embeddings yet.
+func (h *FeedHandler) similarFeed(viewerID string, page, pageSize, offset int) ([]dto.FeedItemResponse, int64, error) {
+	keywords := h.viewerGrowthKeywords(viewerID)
+
+	base := h.db.Model(&database.Medal{}).Where("visibility = ?", "public")
+	if viewerID != "" {
+		base = base.Where("user_id <> ?", viewerID)
+	}
+
+	// Without a portrait we degrade to latest ordering (still paginated server-side).
+	if len(keywords) == 0 {
+		var total int64
+		if err := base.Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+		var medals []database.Medal
+		if err := base.Order("medals.created_at DESC").Limit(pageSize).Offset(offset).Find(&medals).Error; err != nil {
+			return nil, 0, err
+		}
+		items, err := h.buildFeedItems(medals, viewerID)
+		return items, total, err
+	}
+
+	// With a portrait we score a candidate window in memory, then paginate the
+	// scored slice. The window is bounded so this stays cheap for M8 volumes.
+	candidateLimit := pageSize * similarCandidateMultiplier
+	if candidateLimit > similarCandidateMax {
+		candidateLimit = similarCandidateMax
+	}
+	var candidates []database.Medal
+	if err := base.Order("medals.created_at DESC").Limit(candidateLimit).Find(&candidates).Error; err != nil {
+		return nil, 0, err
+	}
+
+	type scored struct {
+		medal database.Medal
+		score int
+	}
+	scoredItems := make([]scored, 0, len(candidates))
+	for i := range candidates {
+		scoredItems = append(scoredItems, scored{medal: candidates[i], score: scoreMedalByKeywords(candidates[i], keywords)})
+	}
+	sort.SliceStable(scoredItems, func(i, j int) bool {
+		if scoredItems[i].score != scoredItems[j].score {
+			return scoredItems[i].score > scoredItems[j].score
+		}
+		return scoredItems[i].medal.CreatedAt.After(scoredItems[j].medal.CreatedAt)
+	})
+
+	total := int64(len(scoredItems))
+	if offset >= len(scoredItems) {
+		return []dto.FeedItemResponse{}, total, nil
+	}
+	end := offset + pageSize
+	if end > len(scoredItems) {
+		end = len(scoredItems)
+	}
+	medals := make([]database.Medal, 0, end-offset)
+	for _, s := range scoredItems[offset:end] {
+		medals = append(medals, s.medal)
+	}
+	items, err := h.buildFeedItems(medals, viewerID)
+	return items, total, err
+}
+
+// forYouFeed blends following, popular and recency into a single weighted
+// ordering. The weighting is deliberately simple per the M8 plan: followed
+// authors get a large fixed boost, interactions add a per-count weight, and
+// recency breaks ties. Everything is expressed in SQL so pagination stays cheap.
+func (h *FeedHandler) forYouFeed(viewerID string, page, pageSize, offset int) ([]dto.FeedItemResponse, int64, error) {
+	base := h.db.Model(&database.Medal{}).Where("visibility = ?", "public")
+	if viewerID != "" {
+		base = base.Where("user_id <> ?", viewerID)
+	}
+
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Load the viewer's followings so we can boost their medals.
+	var followingIDs []string
+	if viewerID != "" {
+		if err := h.db.Model(&database.FollowRelation{}).
+			Where("follower_id = ?", viewerID).
+			Pluck("following_id", &followingIDs).Error; err != nil {
+			return nil, 0, err
+		}
+	}
+
+	query := base.Session(&gorm.Session{}).
+		Select("medals.*, COALESCE(ic.cnt, 0) AS interaction_count").
+		Joins("LEFT JOIN (SELECT medal_id, COUNT(*) AS cnt FROM medal_interactions GROUP BY medal_id) ic ON ic.medal_id = medals.id")
+
+	// Followed authors rank first, then most-interacted, then newest.
+	if len(followingIDs) > 0 {
+		query = query.
+			Select("medals.*, COALESCE(ic.cnt, 0) AS interaction_count, CASE WHEN medals.user_id IN (?) THEN 1 ELSE 0 END AS is_following", followingIDs).
+			Order("is_following DESC").
+			Order("interaction_count DESC").
+			Order("medals.created_at DESC")
+	} else {
+		query = query.
+			Order("interaction_count DESC").
+			Order("medals.created_at DESC")
+	}
+
+	var medals []database.Medal
+	if err := query.Limit(pageSize).Offset(offset).Find(&medals).Error; err != nil {
+		return nil, 0, err
+	}
+	items, err := h.buildFeedItems(medals, viewerID)
+	return items, total, err
+}
+
+// viewerGrowthKeywords loads the viewer's trait + growth keywords merged into a
+// deduplicated, normalized slice. Returns nil when there is no profile yet.
+func (h *FeedHandler) viewerGrowthKeywords(viewerID string) []string {
+	if viewerID == "" {
+		return nil
+	}
+	var profile database.GrowthProfile
+	if err := h.db.Select("trait_keywords_json, growth_keywords_json").
+		Where("user_id = ?", viewerID).
+		First(&profile).Error; err != nil {
+		return nil
+	}
+	return growthprofile.StringsFromJSONFields(profile.TraitKeywordsJSON, profile.GrowthKeywordsJSON)
+}
+
+// scoreMedalByKeywords counts how many of the viewer's profile keywords appear
+// in the medal's title or short reason. Case-insensitive, substring match.
+func scoreMedalByKeywords(medal database.Medal, keywords []string) int {
+	if len(keywords) == 0 {
+		return 0
+	}
+	haystack := strings.ToLower(medal.Title + " " + medal.ShortReason)
+	score := 0
+	for _, kw := range keywords {
+		kw = strings.ToLower(strings.TrimSpace(kw))
+		if kw == "" {
+			continue
+		}
+		if strings.Contains(haystack, kw) {
+			score++
+		}
+	}
+	return score
 }
 
 // buildFeedItems enriches medals with author summaries, interaction counts and

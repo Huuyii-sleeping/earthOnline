@@ -19,5 +19,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Notification{},
 		&GenerationJob{},
 		&StageSummary{},
+		&GrowthProfile{},
+		&GrowthInsight{},
 	)
 }

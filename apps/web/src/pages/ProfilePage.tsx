@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMyMedals, getMyProfile } from "@/features/profile/profileApi";
 import { listFollowers, listFollowing } from "@/features/social/socialApi";
+import { GrowthProfileSection } from "@/features/growth/GrowthProfileSection";
 import type { MedalWithVersion } from "@earth-online/shared";
 
 const memoryWeightLabels: Record<string, string> = {
@@ -108,6 +109,9 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      {/* 成长档案 */}
+      <GrowthProfileSection />
 
       {/* 奖章墙 / 时间线 */}
       <Tabs defaultValue="wall" className="w-full">

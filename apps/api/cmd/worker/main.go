@@ -15,8 +15,10 @@ import (
 
 	"github.com/earth-online/api/internal/config"
 	"github.com/earth-online/api/internal/database"
+	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/domain/stagesummary"
 	"github.com/earth-online/api/internal/integrations/agent"
+	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/earth-online/api/internal/storage"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -27,6 +29,11 @@ const (
 	TaskSpeechToText       = "speech_to_text"
 	TaskImageUnderstanding = "image_understanding"
 	TaskStageSummaryPeriod = "stage_summary.generate_period"
+
+	// TaskGrowthProfileRefreshActiveUsers is the weekly sweep that enqueues a
+	// per-user refresh. The per-user task type lives in the taskqueue package so
+	// the API server can enqueue it too.
+	TaskGrowthProfileRefreshActiveUsers = "growth_profile.refresh_active_users"
 )
 
 // concurrency is how many tasks the worker processes in parallel.
@@ -44,6 +51,8 @@ type worker struct {
 	minioClient *storage.MinIOClient
 	openai      *openAIClient
 	stage       *stagesummary.Service
+	growth      *growthprofile.Service
+	queue       *taskqueue.Client
 	logger      *slog.Logger
 }
 
@@ -88,6 +97,8 @@ func main() {
 		minioClient: minioClient,
 		openai:      openaiCli,
 		stage:       stagesummary.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
+		growth:      growthprofile.NewService(db, agent.NewClient(cfg.AgentServiceURL, logger), logger),
+		queue:       taskqueue.NewClient(cfg.RedisAddr, logger),
 		logger:      logger,
 	}
 
@@ -108,6 +119,8 @@ func main() {
 	mux.HandleFunc(TaskSpeechToText, w.handleSpeechToText)
 	mux.HandleFunc(TaskImageUnderstanding, w.handleImageUnderstanding)
 	mux.HandleFunc(TaskStageSummaryPeriod, w.handleStageSummaryPeriod)
+	mux.HandleFunc(taskqueue.TaskGrowthProfileRefresh, w.handleGrowthProfileRefresh)
+	mux.HandleFunc(TaskGrowthProfileRefreshActiveUsers, w.handleGrowthProfileRefreshActiveUsers)
 
 	scheduler := newStageSummaryScheduler(cfg.RedisAddr, logger)
 	if err := registerStageSummarySchedules(scheduler); err != nil {
@@ -120,6 +133,17 @@ func main() {
 		}
 	}()
 
+	growthScheduler := newGrowthProfileScheduler(cfg.RedisAddr, logger)
+	if err := registerGrowthProfileSchedules(growthScheduler); err != nil {
+		logger.Error("failed to register growth profile schedules", "error", err)
+		os.Exit(1)
+	}
+	go func() {
+		if err := growthScheduler.Run(); err != nil {
+			logger.Error("growth profile scheduler stopped with error", "error", err)
+		}
+	}()
+
 	// Graceful shutdown on SIGINT / SIGTERM.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -128,7 +152,9 @@ func main() {
 		<-stop
 		logger.Info("shutting down worker...")
 		scheduler.Shutdown()
+		growthScheduler.Shutdown()
 		srv.Shutdown()
+		w.queue.Close()
 	}()
 
 	if err := srv.Run(mux); err != nil {

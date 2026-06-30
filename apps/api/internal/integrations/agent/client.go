@@ -268,3 +268,102 @@ func (c *Client) GenerateStageSummary(ctx context.Context, req *GenerateStageSum
 
 	return &result, nil
 }
+
+// GrowthMedalItem is a medal signal fed into growth profile extraction.
+type GrowthMedalItem struct {
+	ID           string `json:"id,omitempty"`
+	Title        string `json:"title,omitempty"`
+	ShortReason  string `json:"shortReason,omitempty"`
+	MeaningFocus string `json:"meaningFocus,omitempty"`
+	Story        string `json:"story,omitempty"`
+	MemoryWeight string `json:"memoryWeight,omitempty"`
+	CreatedAt    string `json:"createdAt,omitempty"`
+	ExperienceID string `json:"experienceId,omitempty"`
+	Experience   string `json:"experience,omitempty"`
+	ExperienceAt string `json:"experienceAt,omitempty"`
+}
+
+// GrowthStageSummaryItem is a stage-summary signal fed into growth profile extraction.
+type GrowthStageSummaryItem struct {
+	ID           string   `json:"id,omitempty"`
+	PeriodType   string   `json:"periodType,omitempty"`
+	PeriodStart  string   `json:"periodStart,omitempty"`
+	PeriodEnd    string   `json:"periodEnd,omitempty"`
+	Title        string   `json:"title,omitempty"`
+	Summary      string   `json:"summary,omitempty"`
+	Story        string   `json:"story,omitempty"`
+	MemoryWeight string   `json:"memoryWeight,omitempty"`
+	Highlights   []string `json:"highlights,omitempty"`
+}
+
+// GenerateGrowthProfileRequest is the payload for Agent growth-profile extraction.
+type GenerateGrowthProfileRequest struct {
+	Medals         []GrowthMedalItem        `json:"medals"`
+	StageSummaries []GrowthStageSummaryItem `json:"stageSummaries"`
+}
+
+type GrowthExperienceType struct {
+	Type   string  `json:"type"`
+	Weight float64 `json:"weight"`
+}
+
+type GrowthEmotionTrend struct {
+	Label   string `json:"label"`
+	Summary string `json:"summary"`
+}
+
+type GrowthInsightItem struct {
+	Title    string   `json:"title"`
+	Summary  string   `json:"summary"`
+	Keywords []string `json:"keywords"`
+}
+
+type GrowthEvidence struct {
+	MedalIDs        []string `json:"medalIds"`
+	StageSummaryIDs []string `json:"stageSummaryIds"`
+	ExperienceIDs   []string `json:"experienceIds"`
+}
+
+// GenerateGrowthProfileResponse is the structured profile returned by Agent.
+type GenerateGrowthProfileResponse struct {
+	Summary         string                 `json:"summary"`
+	TraitKeywords   []string               `json:"traitKeywords"`
+	GrowthKeywords  []string               `json:"growthKeywords"`
+	ExperienceTypes []GrowthExperienceType `json:"experienceTypes"`
+	EmotionTrends   []GrowthEmotionTrend   `json:"emotionTrends"`
+	Insights        []GrowthInsightItem    `json:"insights"`
+	Evidence        GrowthEvidence         `json:"evidence"`
+}
+
+// GenerateGrowthProfile asks the Agent to extract a long-term growth profile.
+func (c *Client) GenerateGrowthProfile(ctx context.Context, req *GenerateGrowthProfileRequest) (*GenerateGrowthProfileResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := c.baseURL + "/growth/profile"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call agent growth profile: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("agent growth profile returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var result GenerateGrowthProfileResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode growth profile response: %w", err)
+	}
+
+	return &result, nil
+}

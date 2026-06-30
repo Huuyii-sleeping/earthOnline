@@ -10,6 +10,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/domain/stagesummary"
 	"github.com/earth-online/api/internal/http/dto"
+	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -17,11 +18,12 @@ import (
 type StageSummaryHandler struct {
 	db      *gorm.DB
 	service *stagesummary.Service
+	queue   *taskqueue.Client
 	logger  *slog.Logger
 }
 
-func NewStageSummaryHandler(db *gorm.DB, service *stagesummary.Service, logger *slog.Logger) *StageSummaryHandler {
-	return &StageSummaryHandler{db: db, service: service, logger: logger}
+func NewStageSummaryHandler(db *gorm.DB, service *stagesummary.Service, queue *taskqueue.Client, logger *slog.Logger) *StageSummaryHandler {
+	return &StageSummaryHandler{db: db, service: service, queue: queue, logger: logger}
 }
 
 // GenerateStageSummary handles POST /stage-summaries/generate
@@ -72,6 +74,10 @@ func (h *StageSummaryHandler) GenerateStageSummary(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "stage summary generation failed", "detail": err.Error()})
 		return
 	}
+
+	// Best-effort: refresh the growth portrait now that a new stage summary
+	// is available as a signal. Failures never affect this response.
+	h.queue.EnqueueGrowthProfileRefresh(c.Request.Context(), viewerID, "stage_summary_generated")
 
 	c.JSON(http.StatusOK, gin.H{"data": toStageSummaryResponse(summary)})
 }

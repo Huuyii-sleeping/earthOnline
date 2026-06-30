@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"github.com/earth-online/api/internal/config"
+	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/domain/stagesummary"
 	"github.com/earth-online/api/internal/http/handlers"
 	"github.com/earth-online/api/internal/http/middleware"
 	"github.com/earth-online/api/internal/integrations/agent"
+	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/earth-online/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -30,6 +32,11 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	// Agent integration client
 	agentClient := agent.NewClient(cfg.AgentServiceURL, logger)
 
+	// Background task queue (best-effort growth profile refresh, etc.).
+	// When Redis is unavailable this becomes a no-op client so the API still
+	// serves normally; only async profile refresh is affected.
+	taskQueueClient := taskqueue.NewClient(cfg.RedisAddr, logger)
+
 	// MinIO client
 	minioClient, err := storage.NewMinIOClient(cfg.S3Endpoint, cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.S3Bucket, logger)
 	if err != nil {
@@ -42,15 +49,17 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	userHandler := handlers.NewUserHandler(db, logger)
 	experienceHandler := handlers.NewExperienceHandler(db, logger)
 	conversationHandler := handlers.NewConversationHandler(db, agentClient, logger)
-	medalHandler := handlers.NewMedalHandler(db, agentClient, logger)
+	medalHandler := handlers.NewMedalHandler(db, agentClient, taskQueueClient, logger)
 	assetHandler := handlers.NewAssetHandler(db, minioClient, logger)
 	profileHandler := handlers.NewProfileHandler(db, logger)
 	socialHandler := handlers.NewSocialHandler(db, logger)
 	feedHandler := handlers.NewFeedHandler(db, logger)
 	notificationHandler := handlers.NewNotificationHandler(db, logger)
 	stageSummaryService := stagesummary.NewService(db, agentClient, logger)
-	stageSummaryHandler := handlers.NewStageSummaryHandler(db, stageSummaryService, logger)
+	stageSummaryHandler := handlers.NewStageSummaryHandler(db, stageSummaryService, taskQueueClient, logger)
 	agentProfileHandler := handlers.NewAgentProfileHandler(db, logger)
+	growthProfileService := growthprofile.NewService(db, agentClient, logger)
+	growthProfileHandler := handlers.NewGrowthProfileHandler(db, growthProfileService, logger)
 
 	api := r.Group("/api/v1")
 
@@ -139,5 +148,10 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		// Agent profile (M7)
 		authRequired.GET("/agent-profile", agentProfileHandler.GetAgentProfile)
 		authRequired.PUT("/agent-profile", agentProfileHandler.UpdateAgentProfile)
+
+		// Growth profile (M8)
+		authRequired.GET("/growth-profile", growthProfileHandler.GetGrowthProfile)
+		authRequired.POST("/growth-profile/refresh", growthProfileHandler.RefreshGrowthProfile)
+		authRequired.GET("/growth-insights", growthProfileHandler.ListGrowthInsights)
 	}
 }

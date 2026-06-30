@@ -11,6 +11,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/http/dto"
 	"github.com/earth-online/api/internal/integrations/agent"
+	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -19,10 +20,11 @@ type MedalHandler struct {
 	db          *gorm.DB
 	logger      *slog.Logger
 	agentClient *agent.Client
+	queue       *taskqueue.Client
 }
 
-func NewMedalHandler(db *gorm.DB, agentClient *agent.Client, logger *slog.Logger) *MedalHandler {
-	return &MedalHandler{db: db, agentClient: agentClient, logger: logger}
+func NewMedalHandler(db *gorm.DB, agentClient *agent.Client, queue *taskqueue.Client, logger *slog.Logger) *MedalHandler {
+	return &MedalHandler{db: db, agentClient: agentClient, queue: queue, logger: logger}
 }
 
 // GenerateMedal handles POST /experiences/:id/medals/generate
@@ -159,6 +161,11 @@ func (h *MedalHandler) GenerateMedal(c *gin.Context) {
 
 	// Reload medal with version ID
 	h.db.First(&medal, "id = ?", medal.ID)
+
+	// Best-effort: schedule a growth profile refresh now that the user has a
+	// new medal signal. Failures are logged inside the queue client and never
+	// affect the medal generation response.
+	h.queue.EnqueueGrowthProfileRefresh(c.Request.Context(), userID.(string), "medal_generated")
 
 	c.JSON(http.StatusCreated, gin.H{"data": h.toResponse(&medal)})
 }
@@ -354,9 +361,9 @@ func (h *MedalHandler) RegenerateMeaning(c *gin.Context) {
 
 	// Update medal with new content
 	h.db.Model(&medal).Updates(map[string]interface{}{
-		"title":             agentResp.Title,
-		"short_reason":      agentResp.ShortReason,
-		"memory_weight":     agentResp.MemoryWeight,
+		"title":              agentResp.Title,
+		"short_reason":       agentResp.ShortReason,
+		"memory_weight":      agentResp.MemoryWeight,
 		"current_version_id": newVersion.ID,
 	})
 

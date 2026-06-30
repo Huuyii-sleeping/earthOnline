@@ -226,3 +226,37 @@ type StageSummary struct {
 }
 
 func (StageSummary) TableName() string { return "stage_summaries" }
+
+// GrowthProfile is the user's current long-term growth portrait. It is private
+// by default and derived from the user's experiences, medals, and stage summaries.
+type GrowthProfile struct {
+	Base
+	UserID              string     `gorm:"type:uuid;not null;uniqueIndex" json:"user_id"`
+	TraitKeywordsJSON   *string    `gorm:"type:jsonb" json:"trait_keywords_json"`
+	GrowthKeywordsJSON  *string    `gorm:"type:jsonb" json:"growth_keywords_json"`
+	ExperienceTypesJSON *string    `gorm:"type:jsonb" json:"experience_types_json"`
+	EmotionTrendsJSON   *string    `gorm:"type:jsonb" json:"emotion_trends_json"`
+	SummaryText         *string    `gorm:"type:text" json:"summary_text"`
+	SourceCountsJSON    *string    `gorm:"type:jsonb" json:"source_counts_json"`
+	LastRefreshedAt     *time.Time `gorm:"type:timestamptz" json:"last_refreshed_at"`
+}
+
+func (GrowthProfile) TableName() string { return "growth_profiles" }
+
+// GrowthInsight is a point-in-time insight generated while refreshing a
+// profile. It keeps evidence metadata so profile changes can be explained.
+type GrowthInsight struct {
+	Base
+	UserID       string     `gorm:"type:uuid;not null;index" json:"user_id"`
+	PeriodType   string     `gorm:"type:varchar(20);not null;default:'all';index" json:"period_type"`
+	PeriodStart  *time.Time `gorm:"type:timestamptz" json:"period_start"`
+	PeriodEnd    *time.Time `gorm:"type:timestamptz" json:"period_end"`
+	Title        string     `gorm:"type:varchar(255);not null" json:"title"`
+	SummaryText  string     `gorm:"type:text;not null" json:"summary_text"`
+	KeywordsJSON *string    `gorm:"type:jsonb" json:"keywords_json"`
+	SignalsJSON  *string    `gorm:"type:jsonb" json:"signals_json"`
+	GeneratedBy  string     `gorm:"type:varchar(20);not null;default:'agent'" json:"generated_by"`
+	Trigger      string     `gorm:"type:varchar(50);not null;default:'manual'" json:"trigger"`
+}
+
+func (GrowthInsight) TableName() string { return "growth_insights" }
