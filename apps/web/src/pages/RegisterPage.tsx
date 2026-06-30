@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   registerSchema,
   type RegisterInput,
@@ -37,7 +38,6 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const tokens = await registerUser(data);
-      // 注册成功后自动登录
       setAuth(data.account, data.nickname, tokens.access_token, tokens.refresh_token);
       navigate("/app", { replace: true });
     } catch (err: unknown) {
@@ -49,7 +49,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* 品牌标识 */}
         <div className="mb-8 flex flex-col items-center">
@@ -58,8 +58,8 @@ export default function RegisterPage() {
           <p className="mt-1 text-sm text-muted-foreground">创建你的账号</p>
         </div>
 
-        {/* 注册卡片 */}
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
+        {/* 注册卡片 — glass */}
+        <div className="glass-card p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="account">账号</Label>
@@ -91,7 +91,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -109,6 +109,11 @@ export default function RegisterPage() {
             去登录
           </Link>
         </p>
+      </div>
+
+      {/* 右上角主题切换 */}
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
       </div>
     </div>
   );

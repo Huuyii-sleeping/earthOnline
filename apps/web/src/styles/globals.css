@@ -2,20 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Earth Online Glassmorphism Theme ── */
+
 @layer base {
+  /* ── Dark Mode (default) ── */
   :root {
-    --background: 50 33% 96%;
+    --background: 228 39% 7%;
+    --foreground: 0 0% 95%;
+
+    --card: 230 28% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --muted: 230 16% 18%;
+    --muted-foreground: 0 0% 55%;
+
+    --primary: 40 55% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 40 55% 53%;
+
+    --radius: 1rem;
+
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-bg-hover: rgba(255, 255, 255, 0.1);
+    --glass-bg-strong: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-bright: rgba(255, 255, 255, 0.2);
+    --glass-blur: blur(40px) saturate(180%);
+
+    --shadow-glass:
+      0 0 0 1px rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.12),
+      0 16px 48px rgba(0, 0, 0, 0.18);
+
+    --shadow-glass-hover:
+      0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.16),
+      0 24px 64px rgba(0, 0, 0, 0.22);
+
+    --destructive: 0 84% 60%;
+
+    --orb-sage: #6f8f72;
+    --orb-coral: #e9785f;
+    --orb-gold: #d5a63a;
+    --orb-blue: #5876a3;
+  }
+
+  /* ── Light Mode ── */
+  .light {
+    --background: 40 29% 95%;
     --foreground: 140 14% 11%;
+
     --card: 0 0% 100%;
     --card-foreground: 140 14% 11%;
+
     --muted: 130 22% 91%;
     --muted-foreground: 135 7% 42%;
+
     --primary: 137 18% 42%;
     --primary-foreground: 0 0% 100%;
-    --border: 130 16% 86%;
-    --input: 130 16% 86%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
     --ring: 137 18% 42%;
-    --radius: 0.5rem;
+
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-bg-hover: rgba(255, 255, 255, 0.7);
+    --glass-bg-strong: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-border-bright: rgba(0, 0, 0, 0.14);
+    --glass-blur: blur(40px) saturate(120%);
+
+    --shadow-glass:
+      0 0 0 1px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 16px 48px rgba(0, 0, 0, 0.08);
+
+    --shadow-glass-hover:
+      0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.1), 0 24px 64px rgba(0, 0, 0, 0.12);
+
+    --destructive: 0 84% 60%;
+
+    --orb-sage: #6f8f72;
+    --orb-coral: #e9785f;
+    --orb-gold: #d5a63a;
+    --orb-blue: #5876a3;
   }
 
   * {
@@ -24,5 +93,182 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+}
+
+/* ── Glass Utility Classes ── */
+@layer components {
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    transition: all 0.2s ease;
+  }
+
+  .glass:hover {
+    background: var(--glass-bg-hover);
+    box-shadow: var(--shadow-glass-hover);
+  }
+
+  .glass-strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border-bright);
+    box-shadow: var(--shadow-glass);
+  }
+
+  .glass-subtle {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .light .glass-subtle {
+    background: rgba(255, 255, 255, 0.5);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-glass);
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-glass-hover);
+  }
+
+  .glass-nav {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  /* ── Aurora Orbs ── */
+  .aurora-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .aurora-orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(100px);
+    opacity: 0.4;
+    will-change: transform;
+  }
+
+  .light .aurora-orb {
+    opacity: 0.18;
+    filter: blur(120px);
+  }
+
+  .aurora-orb-1 {
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, var(--orb-gold), transparent 70%);
+    top: -15%;
+    right: 10%;
+    animation: aurora-float-1 25s ease-in-out infinite;
+  }
+
+  .aurora-orb-2 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, var(--orb-coral), transparent 70%);
+    bottom: 10%;
+    left: -5%;
+    animation: aurora-float-2 30s ease-in-out infinite;
+  }
+
+  .aurora-orb-3 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, var(--orb-sage), transparent 70%);
+    top: 40%;
+    right: 30%;
+    animation: aurora-float-3 20s ease-in-out infinite;
+  }
+
+  .aurora-orb-4 {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, var(--orb-blue), transparent 70%);
+    bottom: -10%;
+    right: -5%;
+    animation: aurora-float-4 28s ease-in-out infinite;
+  }
+}
+
+/* ── Aurora Animations ── */
+@keyframes aurora-float-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-40px, 30px) scale(1.05);
+  }
+  66% {
+    transform: translate(20px, -20px) scale(0.95);
+  }
+}
+
+@keyframes aurora-float-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -40px) scale(1.08);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.92);
+  }
+}
+
+@keyframes aurora-float-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-30px, -30px) scale(1.06);
+  }
+  66% {
+    transform: translate(40px, 20px) scale(0.94);
+  }
+}
+
+@keyframes aurora-float-4 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(20px, 40px) scale(1.04);
+  }
+  66% {
+    transform: translate(-30px, -20px) scale(0.96);
   }
 }

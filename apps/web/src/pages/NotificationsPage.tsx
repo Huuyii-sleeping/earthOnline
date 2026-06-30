@@ -92,8 +92,8 @@ function NotificationRow({
 }) {
   return (
     <li
-      className={`flex items-start gap-3 rounded-lg border p-4 text-left text-sm shadow-sm transition-colors ${
-        notification.is_read ? "bg-card" : "bg-amber-50/60"
+      className={`glass flex items-start gap-3 rounded-lg p-4 text-left text-sm ${
+        !notification.is_read ? "glass-strong" : ""
       }`}
     >
       <div
@@ -121,7 +121,7 @@ function NotificationRow({
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-16 text-muted-foreground">
+    <div className="glass-card flex flex-col items-center justify-center py-16 text-muted-foreground">
       <Bell className="h-10 w-10" />
       <p className="mt-3 text-sm">{text}</p>
     </div>

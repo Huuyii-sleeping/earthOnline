@@ -23,11 +23,21 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      backdropBlur: {
+        glass: "40px",
+      },
+      boxShadow: {
+        glass: "var(--shadow-glass)",
+        "glass-hover": "var(--shadow-glass-hover)",
       },
     },
   },

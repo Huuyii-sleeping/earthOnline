@@ -77,14 +77,14 @@ export default function UserProfilePage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="glass-card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {profile.avatar_url ? (
               <img
                 src={profile.avatar_url}
                 alt={profile.nickname}
-                className="h-16 w-16 rounded-full border object-cover"
+                className="glass-subtle h-16 w-16 rounded-full object-cover"
               />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
@@ -146,7 +146,7 @@ export default function UserProfilePage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-12 text-muted-foreground">
+          <div className="glass-card flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Award className="h-10 w-10" />
             <p className="mt-3 text-sm">还没有公开的奖章</p>
           </div>
@@ -158,11 +158,8 @@ export default function UserProfilePage() {
 
 function UserMedalCard({ medal }: { medal: MedalWithVersion }) {
   return (
-    <Link
-      to={`/medals/${medal.id}`}
-      className="rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-muted/50"
-    >
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+    <Link to={`/medals/${medal.id}`} className="glass-card p-5">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full text-primary">
         <Award className="h-7 w-7" />
       </div>
       <h3 className="mt-4 font-semibold">{medal.title}</h3>
@@ -170,7 +167,7 @@ function UserMedalCard({ medal }: { medal: MedalWithVersion }) {
         {medal.short_reason}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full border px-2 py-0.5 text-xs">
+        <span className="glass-subtle rounded-full px-2 py-0.5 text-xs">
           {memoryWeightLabels[medal.memory_weight] ?? medal.memory_weight}
         </span>
       </div>

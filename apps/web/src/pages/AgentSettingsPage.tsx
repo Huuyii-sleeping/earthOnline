@@ -10,6 +10,66 @@ import {
 } from "@/features/agent/runtimeConfig";
 import { getAgentProfile, updateAgentProfile } from "@/features/stage/stageApi";
 
+/* Reusable glass textarea */
+function GlassTextarea({
+  id,
+  name,
+  value,
+  onChange,
+  placeholder,
+  rows = 6,
+}: {
+  id: string;
+  name?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      id={id}
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={rows}
+      className="min-h-24 w-full rounded-lg px-3 py-2 text-sm leading-6 transition-all bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-glass)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+    />
+  );
+}
+
+/* Reusable glass select */
+function GlassSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  name?: string;
+  value: number | string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: { value: number | string; label: string }[];
+}) {
+  return (
+    <select
+      id={id}
+      name={name}
+      value={value}
+      onChange={onChange}
+      className="h-10 w-full rounded-lg px-3 text-sm transition-all bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-foreground shadow-[var(--shadow-glass)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none"
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function AgentSettingsPage() {
   const queryClient = useQueryClient();
   const runtimeConfig = useAgentRuntimeConfigStore();
@@ -74,8 +134,8 @@ export default function AgentSettingsPage() {
         <h1 className="text-xl font-semibold">Agent 设置</h1>
       </div>
 
-      {/* 设置表单 */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      {/* 主动设置 — glass card */}
+      <div className="glass-card p-6">
         <div className="mb-5">
           <h2 className="text-lg font-semibold">主动设置</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -89,7 +149,7 @@ export default function AgentSettingsPage() {
             正在加载 Agent 设置
           </div>
         ) : profileQuery.error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="glass-subtle rounded-lg p-4 text-sm text-destructive">
             Agent 设置加载失败，请稍后重试。
           </div>
         ) : (
@@ -135,13 +195,12 @@ export default function AgentSettingsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="agent-identity">身份提示</Label>
-              <textarea
+              <GlassTextarea
                 id="agent-identity"
                 name="identity_prompt"
-                defaultValue={profile?.identity_prompt ?? ""}
-                placeholder="描述这个 Agent 应该如何理解你、陪伴你、主动提醒你"
+                value={profile?.identity_prompt ?? ""}
                 onChange={() => setProfileSaved(false)}
-                className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="描述这个 Agent 应该如何理解你、陪伴你、主动提醒你"
               />
             </div>
 
@@ -158,17 +217,17 @@ export default function AgentSettingsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="proactive-level">主动程度</Label>
-              <select
+              <GlassSelect
                 id="proactive-level"
                 name="proactive_level"
-                defaultValue={profile?.proactive_level ?? 1}
+                value={profile?.proactive_level ?? 1}
                 onChange={() => setProfileSaved(false)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value={0}>关闭主动提醒</option>
-                <option value={1}>克制：仅 App 内提醒</option>
-                <option value={2}>积极：允许更主动的站内提醒</option>
-              </select>
+                options={[
+                  { value: 0, label: "关闭主动提醒" },
+                  { value: 1, label: "克制：仅 App 内提醒" },
+                  { value: 2, label: "积极：允许更主动的站内提醒" },
+                ]}
+              />
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -192,7 +251,8 @@ export default function AgentSettingsPage() {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      {/* 运行时 API — glass card */}
+      <div className="glass-card p-6">
         <div className="mb-5">
           <h2 className="text-lg font-semibold">运行时 Agent API</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -248,14 +308,15 @@ export default function AgentSettingsPage() {
 
           <div className="space-y-2">
             <Label htmlFor="agent-system-prompt">系统提示词</Label>
-            <textarea
+            <GlassTextarea
               id="agent-system-prompt"
               value={systemPrompt}
               onChange={(event) => {
                 setSystemPrompt(event.target.value);
                 setSaved(false);
               }}
-              className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              placeholder="描述 Agent 的角色和行为准则"
+              rows={7}
             />
           </div>
 

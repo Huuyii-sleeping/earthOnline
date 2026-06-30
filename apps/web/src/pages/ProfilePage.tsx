@@ -69,7 +69,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-8">
       {/* 个人信息卡片 */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="glass-card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {profile?.avatar_url ? (
@@ -166,15 +166,12 @@ export default function ProfilePage() {
 
 function MedalWallCard({ medal }: { medal: MedalWithVersion }) {
   return (
-    <Link
-      to={`/medals/${medal.id}`}
-      className="group rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-muted/50"
-    >
+    <Link to={`/medals/${medal.id}`} className="glass-card p-5">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full text-primary">
           <Award className="h-7 w-7" />
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <span className="glass-subtle inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground">
           {visibilityLabel(medal.visibility)}
         </span>
       </div>
@@ -183,7 +180,7 @@ function MedalWallCard({ medal }: { medal: MedalWithVersion }) {
         {medal.short_reason}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full border px-2 py-0.5 text-xs">
+        <span className="glass-subtle rounded-full px-2 py-0.5 text-xs">
           {memoryWeightLabels[medal.memory_weight] ?? medal.memory_weight}
         </span>
       </div>
@@ -193,17 +190,14 @@ function MedalWallCard({ medal }: { medal: MedalWithVersion }) {
 
 function MedalTimelineRow({ medal }: { medal: MedalWithVersion }) {
   return (
-    <Link
-      to={`/medals/${medal.id}`}
-      className="flex gap-4 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
-    >
-      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+    <Link to={`/medals/${medal.id}`} className="glass-card flex gap-4 p-4">
+      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground">
         <Clock className="h-4 w-4 text-muted-foreground" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">{medal.title}</p>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          <span className="glass-subtle inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground">
             {visibilityLabel(medal.visibility)}
           </span>
         </div>
@@ -212,7 +206,7 @@ function MedalTimelineRow({ medal }: { medal: MedalWithVersion }) {
           {medal.short_reason}
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          <span className="rounded-full border px-2 py-0.5 text-xs">
+          <span className="glass-subtle rounded-full px-2 py-0.5 text-xs">
             {memoryWeightLabels[medal.memory_weight] ?? medal.memory_weight}
           </span>
         </div>
@@ -240,8 +234,8 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-16 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+    <div className="glass-card flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full text-primary">
         <Award className="h-8 w-8" />
       </div>
       <h3 className="mt-4 text-lg font-semibold">还没有任何经历奖章</h3>

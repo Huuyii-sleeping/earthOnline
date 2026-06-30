@@ -42,7 +42,7 @@ export default function StageSummariesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl border bg-card p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="glass-card flex flex-col gap-4 rounded-2xl p-6 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <Award className="h-6 w-6 text-primary" />
@@ -106,7 +106,7 @@ function StageSummaryCard({ summary }: { summary: StageSummary }) {
   const highlights = Array.isArray(summary.highlights) ? summary.highlights : [];
 
   return (
-    <article className="rounded-2xl border bg-card p-5 shadow-sm">
+    <article className="glass-card rounded-2xl p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -114,7 +114,7 @@ function StageSummaryCard({ summary }: { summary: StageSummary }) {
           </p>
           <h2 className="mt-2 text-xl font-semibold">{summary.title}</h2>
         </div>
-        <div className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+        <div className="glass-subtle rounded-full px-3 py-1 text-xs text-muted-foreground">
           {summary.trigger === "scheduled" ? "自动生成" : "手动生成"}
         </div>
       </div>
@@ -131,7 +131,7 @@ function StageSummaryCard({ summary }: { summary: StageSummary }) {
       <p className="mt-4 text-sm leading-7 text-foreground/90">{summary.summary_text}</p>
 
       {summary.story && (
-        <p className="mt-3 rounded-lg bg-muted/70 p-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 glass-subtle rounded-lg p-3 text-sm leading-6 text-muted-foreground">
           {summary.story}
         </p>
       )}
@@ -139,7 +139,7 @@ function StageSummaryCard({ summary }: { summary: StageSummary }) {
       {highlights.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {highlights.map((highlight) => (
-            <span key={highlight} className="rounded-full border px-3 py-1 text-xs">
+            <span key={highlight} className="glass-subtle rounded-full px-3 py-1 text-xs">
               {highlight}
             </span>
           ))}

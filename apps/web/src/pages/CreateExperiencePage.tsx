@@ -24,17 +24,9 @@ import {
   type ConversationSummary,
 } from "@/features/agent/conversationApi";
 import { generateMedal as generateMedalApi } from "@/features/medals/medalApi";
-import {
-  createMockMedalDraft,
-} from "@/features/medals/medalGenerator";
-import {
-  useAgentRuntimeConfigStore,
-} from "@/features/agent/runtimeConfig";
-import {
-  type MedalDraft,
-  type MedalVisibility,
-  useMedalStore,
-} from "@/features/medals/medalStore";
+import { createMockMedalDraft } from "@/features/medals/medalGenerator";
+import { useAgentRuntimeConfigStore } from "@/features/agent/runtimeConfig";
+import { type MedalDraft, type MedalVisibility, useMedalStore } from "@/features/medals/medalStore";
 import type { Experience } from "@earth-online/shared";
 
 interface ChatMessage {
@@ -176,8 +168,7 @@ export default function CreateExperiencePage() {
         }),
       );
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "发送消息失败";
+      const errorMessage = err instanceof Error ? err.message : "发送消息失败";
       setError(errorMessage);
 
       // Update assistant message with error
@@ -210,11 +201,7 @@ export default function CreateExperiencePage() {
       const result = await generateSummary(sessionId);
       setSummary(result);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? `总结生成失败：${err.message}`
-          : "总结生成失败",
-      );
+      setError(err instanceof Error ? `总结生成失败：${err.message}` : "总结生成失败");
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -279,7 +266,7 @@ export default function CreateExperiencePage() {
   return (
     <div className="flex h-[calc(100vh-8.5rem)] flex-col">
       {/* 顶部标题 */}
-      <div className="flex items-center gap-3 border-b pb-4">
+      <div className="flex items-center gap-3 border-b border-[var(--glass-border)] pb-4">
         <MessageSquare className="h-5 w-5 text-primary" />
         <div className="flex-1">
           <h1 className="text-xl font-semibold">记录今天的经历</h1>
@@ -311,19 +298,18 @@ export default function CreateExperiencePage() {
 
       {/* Runtime config panel (for medal generation LLM) */}
       {isConfigOpen && (
-        <div className="mt-4 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="glass-card mt-4 p-4">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <h2 className="text-sm font-semibold">奖章生成 LLM 配置（可选）</h2>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                对话由后端 Agent 服务处理。此配置仅用于奖章生成阶段的 LLM 调用，会保存到 localStorage。
+                对话由后端 Agent 服务处理。此配置仅用于奖章生成阶段的 LLM 调用，会保存到
+                localStorage。
               </p>
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs ${
-                runtimeConfig.isConfigured
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
+              className={`glass-subtle rounded-full px-2.5 py-1 text-xs ${
+                runtimeConfig.isConfigured ? "text-primary" : "text-muted-foreground"
               }`}
             >
               {runtimeConfig.isConfigured ? "已配置" : "未配置"}
@@ -365,7 +351,7 @@ export default function CreateExperiencePage() {
                 id="create-agent-system-prompt"
                 value={systemPrompt}
                 onChange={(event) => setSystemPrompt(event.target.value)}
-                className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-20 w-full rounded-lg px-3 py-2 text-sm leading-6 transition-all bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-glass)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
               />
             </div>
             <div className="flex flex-wrap items-center gap-3 md:col-span-2">
@@ -391,8 +377,8 @@ export default function CreateExperiencePage() {
             key={item.id}
             className={
               item.role === "user"
-                ? "ml-auto max-w-[82%] rounded-lg bg-primary px-4 py-3 text-sm leading-6 text-primary-foreground"
-                : "mr-auto max-w-[82%] rounded-lg border bg-card px-4 py-3 text-sm leading-6 shadow-sm"
+                ? "ml-auto max-w-[82%] rounded-lg px-4 py-3 text-sm leading-6 glass-strong"
+                : "mr-auto max-w-[82%] rounded-lg px-4 py-3 text-sm leading-6 glass"
             }
           >
             {item.role === "assistant" ? (
@@ -404,7 +390,7 @@ export default function CreateExperiencePage() {
         ))}
 
         {isSending && (
-          <div className="mr-auto max-w-[82%] rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+          <div className="mr-auto max-w-[82%] rounded-lg px-4 py-3 text-sm text-muted-foreground glass">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
             Agent 正在思考...
           </div>
@@ -420,12 +406,12 @@ export default function CreateExperiencePage() {
 
       {/* 生成前总结 */}
       {summary && (
-        <div className="mb-4 rounded-lg border bg-blue-50 p-4 shadow-sm">
+        <div className="glass-card mb-4 p-4">
           <div className="mb-2 flex items-center gap-2">
             <Check className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold">经历总结</h3>
             {summary.readyToGenerate && (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+              <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-primary">
                 可以生成奖章
               </span>
             )}
@@ -435,7 +421,7 @@ export default function CreateExperiencePage() {
             <div className="mt-2">
               <span className="text-xs text-muted-foreground">关键情节：</span>
               {summary.keyMoments.map((moment, i) => (
-                <span key={i} className="ml-2 rounded-full border px-2 py-0.5 text-xs">
+                <span key={i} className="ml-2 glass-subtle rounded-full px-2 py-0.5 text-xs">
                   {moment}
                 </span>
               ))}
@@ -445,7 +431,7 @@ export default function CreateExperiencePage() {
             <div className="mt-2">
               <span className="text-xs text-muted-foreground">情绪：</span>
               {summary.detectedEmotions.map((emotion, i) => (
-                <span key={i} className="ml-2 rounded-full border px-2 py-0.5 text-xs">
+                <span key={i} className="ml-2 glass-subtle rounded-full px-2 py-0.5 text-xs">
                   {emotion}
                 </span>
               ))}
@@ -459,26 +445,27 @@ export default function CreateExperiencePage() {
 
       {/* 奖章预览 */}
       {medalDraft && (
-        <div className="mb-4 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="glass-card mb-4 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
             <div className="flex flex-1 gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border bg-amber-100 text-amber-800">
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[var(--glass-border)] text-primary"
+                style={{ background: "var(--glass-bg)" }}
+              >
                 <Award className="h-8 w-8" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-semibold">{medalDraft.title}</h2>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-muted-foreground">
                     {medalDraft.source === "agent" ? "Agent 生成" : "本地生成"}
                   </span>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  {medalDraft.summary}
-                </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{medalDraft.summary}</p>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{medalDraft.detail}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {medalDraft.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border px-2 py-0.5 text-xs">
+                    <span key={tag} className="glass-subtle rounded-full px-2 py-0.5 text-xs">
                       {tag}
                     </span>
                   ))}
@@ -529,7 +516,7 @@ export default function CreateExperiencePage() {
       )}
 
       {/* 底部输入区域 */}
-      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 border-t border-[var(--glass-border)] pt-4 sm:flex-row sm:items-center">
         <Input
           value={message}
           onChange={(e) => setMessage(e.target.value)}

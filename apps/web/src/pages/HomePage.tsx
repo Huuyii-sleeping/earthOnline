@@ -28,7 +28,7 @@ export default function HomePage() {
   const items = feedQuery.data?.data ?? [];
 
   return (
-    <div className="relative pb-20">
+    <div className="relative z-10 pb-20">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FeedTab)} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
           {feedTabs.map((tab) => (
@@ -66,7 +66,7 @@ export default function HomePage() {
 
       <Button
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        className="glass-strong fixed bottom-6 right-6 z-20 h-14 w-14 rounded-full"
         onClick={() => navigate("/create")}
       >
         <PlusCircle className="h-6 w-6" />
@@ -77,7 +77,7 @@ export default function HomePage() {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center py-20">
+    <div className="glass-card flex items-center justify-center py-20">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   );
@@ -85,7 +85,7 @@ function LoadingState() {
 
 function EmptyState({ title, hint }: { title: string; hint: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+    <div className="glass-card flex flex-col items-center justify-center py-20 text-muted-foreground">
       <Inbox className="h-12 w-12" />
       <p className="mt-4 text-lg font-medium">{title}</p>
       <p className="mt-1 text-sm">{hint}</p>

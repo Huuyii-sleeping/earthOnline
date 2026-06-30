@@ -59,10 +59,10 @@ export default function FeedCard({ item }: { item: FeedItem }) {
   }
 
   return (
-    <div className="rounded-lg border bg-card p-5 shadow-sm">
+    <div className="glass-card p-5">
       <Link to={`/medals/${item.medal_id}`} className="block">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-amber-100 text-amber-800">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-primary">
             {item.image_url ? (
               <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" />
             ) : (
@@ -72,7 +72,7 @@ export default function FeedCard({ item }: { item: FeedItem }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h2 className="truncate font-semibold">{item.title}</h2>
-              <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs">
+              <span className="glass-subtle shrink-0 rounded-full px-2 py-0.5 text-xs">
                 {memoryWeightLabels[item.memory_weight] ?? item.memory_weight}
               </span>
             </div>
@@ -96,7 +96,7 @@ export default function FeedCard({ item }: { item: FeedItem }) {
       )}
 
       {/* 轻互动 */}
-      <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--glass-border)] pt-4">
         {reactionConfig.map(({ type, label, icon: Icon }) => {
           const active = reacted.has(type);
           const count = counts[type] ?? 0;

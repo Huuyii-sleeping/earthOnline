@@ -82,7 +82,7 @@ export default function YearReviewListPage() {
           onClick={() => setDialogOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg"
+            className="glass-strong w-full max-w-md rounded-lg p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold">选择年份</h3>
@@ -163,13 +163,13 @@ function AnnualReviewCard({
   deleting: boolean;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-lg border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
+    <div className="glass-card group relative overflow-hidden p-6 transition-shadow hover:shadow-md">
       <Link to={`/year-review/${review.year}`} className="block">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <span className="text-3xl font-bold text-primary">{review.year}</span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-muted-foreground">
                 {triggerLabels[review.trigger] ?? review.trigger}
               </span>
             </div>

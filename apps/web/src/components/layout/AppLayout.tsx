@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Award, Bell, Bot, BookOpen, Home, LogOut, Menu, PlusCircle, User, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/features/auth/useAuth";
 import { getUnreadCount } from "@/features/notifications/notificationApi";
 import { cn } from "@/lib/utils";
@@ -36,9 +37,9 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* 顶部导航栏 */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="relative z-10 min-h-screen">
+      {/* 顶部导航栏 — glassmorphism */}
+      <header className="glass-nav sticky top-0 z-50 w-full">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           {/* 品牌名 */}
           <NavLink to="/app" className="flex items-center gap-2 text-lg font-bold tracking-tight">
@@ -55,10 +56,10 @@ export default function AppLayout() {
                 end={item.to === "/app"}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                     isActive
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "glass-strong text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )
                 }
               >
@@ -75,28 +76,27 @@ export default function AppLayout() {
             ))}
           </nav>
 
-          {/* 右侧用户信息 */}
+          {/* 右侧：主题切换 + 用户信息 */}
           <div className="hidden items-center gap-3 md:flex">
+            <ThemeToggle />
             <span className="text-sm text-muted-foreground">{nickname}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* 移动端汉堡菜单按钮 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {/* 移动端右侧：主题切换 + 汉堡菜单 */}
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* 移动端菜单 */}
         {mobileMenuOpen && (
-          <div className="border-t md:hidden">
+          <div className="border-t border-[var(--glass-border)] md:hidden">
             <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2">
               {navItems.map((item) => (
                 <NavLink
@@ -106,10 +106,10 @@ export default function AppLayout() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                      "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        ? "glass-strong text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )
                   }
                 >
@@ -124,7 +124,7 @@ export default function AppLayout() {
                   {item.label}
                 </NavLink>
               ))}
-              <div className="mt-2 flex items-center gap-3 border-t pt-2">
+              <div className="mt-2 flex items-center gap-3 border-t border-[var(--glass-border)] pt-2">
                 <span className="px-3 text-sm text-muted-foreground">{nickname}</span>
                 <button
                   onClick={handleLogout}
@@ -140,7 +140,7 @@ export default function AppLayout() {
       </header>
 
       {/* 内容区域 */}
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <Outlet />
       </main>
     </div>

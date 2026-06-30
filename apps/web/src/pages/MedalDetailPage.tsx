@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  Award,
-  Eye,
-  EyeOff,
-  Loader2,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Award, Eye, EyeOff, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getMedal,
@@ -79,12 +71,14 @@ export default function MedalDetailPage() {
   if (!medal) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="rounded-lg border bg-card p-8 shadow-sm">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-            <Award className="h-10 w-10 text-muted-foreground" />
+        <div className="glass-card p-6">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-muted-foreground">
+            <Award className="h-10 w-10" />
           </div>
           <h1 className="mt-4 text-xl font-semibold">没有找到这枚奖章</h1>
-          <p className="mt-2 text-sm text-muted-foreground">它可能已经被删除，或者只存在于其他浏览器。</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            它可能已经被删除，或者只存在于其他浏览器。
+          </p>
           <Button asChild className="mt-6">
             <Link to="/profile">返回个人主页</Link>
           </Button>
@@ -142,16 +136,16 @@ export default function MedalDetailPage() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="glass-card p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-primary">
             <Award className="h-12 w-12" />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold">{medal.title}</h1>
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span className="glass-subtle inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground">
                 {medal.visibility === "public" ? (
                   <>
                     <Eye className="h-3 w-3" />
@@ -165,16 +159,14 @@ export default function MedalDetailPage() {
                 )}
               </span>
               {medal.edited_by_user && (
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-primary">
                   已编辑
                 </span>
               )}
             </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {medal.short_reason}
-            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{medal.short_reason}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full border px-2 py-0.5 text-xs">
+              <span className="glass-subtle rounded-full px-2 py-0.5 text-xs">
                 {memoryWeightLabels[medal.memory_weight] || medal.memory_weight}
               </span>
             </div>
@@ -182,13 +174,13 @@ export default function MedalDetailPage() {
         </div>
 
         <div className="mt-8 grid gap-4">
-          <div className="rounded-md bg-muted p-4">
+          <div className="glass-subtle rounded-lg p-4">
             <p className="text-xs font-medium text-muted-foreground">获得时间</p>
             <p className="mt-2 text-sm">{formatDate(medal.created_at)}</p>
           </div>
 
           {medal.image_url && (
-            <div className="rounded-md bg-muted p-4">
+            <div className="glass-subtle rounded-lg p-4">
               <p className="text-xs font-medium text-muted-foreground">奖章图片</p>
               <img
                 src={medal.image_url}
@@ -200,11 +192,7 @@ export default function MedalDetailPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3 border-t pt-5">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleToggleVisibility}
-          >
+          <Button type="button" variant="outline" onClick={handleToggleVisibility}>
             {medal.visibility === "public" ? (
               <>
                 <EyeOff className="mr-2 h-4 w-4" />
@@ -239,7 +227,7 @@ export default function MedalDetailPage() {
 
       {/* 版本历史 */}
       {versions.length > 0 && (
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="glass-card p-6">
           <h2 className="text-sm font-semibold">版本历史</h2>
           <div className="mt-4 space-y-3">
             {versions.map((version) => (
@@ -254,7 +242,7 @@ export default function MedalDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{version.title}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-muted-foreground">
                       {version.version_type === "initial"
                         ? "初始版本"
                         : version.version_type === "user_edit"
@@ -264,7 +252,7 @@ export default function MedalDetailPage() {
                             : version.version_type}
                     </span>
                     {medal.current_version_id === version.id && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                      <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-primary">
                         当前版本
                       </span>
                     )}
@@ -273,9 +261,7 @@ export default function MedalDetailPage() {
                     {formatDate(version.created_at)}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {version.short_reason}
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">{version.short_reason}</p>
                 {version.meaning_focus && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     意义重心：{version.meaning_focus}

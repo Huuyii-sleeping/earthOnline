@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { loginSchema, type LoginInput, login } from "@/features/auth/authApi";
 import { useAuthStore } from "@/features/auth/authStore";
 
@@ -32,7 +33,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const tokens = await login(data);
-      // 登录成功后使用 account 作为临时 userId 和 nickname
       setAuth(data.account, data.account, tokens.access_token, tokens.refresh_token);
       navigate("/app", { replace: true });
     } catch (err: unknown) {
@@ -44,7 +44,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* 品牌标识 */}
         <div className="mb-8 flex flex-col items-center">
@@ -53,8 +53,8 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-muted-foreground">登录你的账号</p>
         </div>
 
-        {/* 登录卡片 */}
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
+        {/* 登录卡片 — glass */}
+        <div className="glass-card p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="account">账号</Label>
@@ -78,7 +78,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -90,12 +90,19 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          没有账号？{" "}
-          <Link to="/register" className="font-medium text-primary hover:underline">
-            去注册
-          </Link>
-        </p>
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            没有账号？{" "}
+            <Link to="/register" className="font-medium text-primary hover:underline">
+              去注册
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* 右上角主题切换 */}
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
       </div>
     </div>
   );
