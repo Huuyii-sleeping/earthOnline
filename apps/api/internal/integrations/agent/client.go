@@ -139,11 +139,12 @@ func (c *Client) StreamSession(ctx context.Context, sessionID string) (io.ReadCl
 
 // GenerateMedalRequest is the payload sent to the Agent for medal generation.
 type GenerateMedalRequest struct {
-	SessionID  string        `json:"session_id"`
-	Experience string        `json:"experience,omitempty"`
-	History    []HistoryItem `json:"history,omitempty"`
-	Direction  string        `json:"direction,omitempty"`
-	UserInput  string        `json:"user_input,omitempty"`
+	SessionID    string               `json:"session_id"`
+	Experience   string               `json:"experience,omitempty"`
+	History      []HistoryItem        `json:"history,omitempty"`
+	Direction    string               `json:"direction,omitempty"`
+	UserInput    string               `json:"user_input,omitempty"`
+	AgentRuntime *AgentRuntimePayload `json:"agent_runtime,omitempty"`
 }
 
 type HistoryItem struct {
@@ -227,12 +228,22 @@ func (c *Client) RegenerateMeaning(ctx context.Context, req *GenerateMedalReques
 }
 
 // GenerateSummary asks the Agent to produce a pre-generation summary of the conversation.
-func (c *Client) GenerateSummary(ctx context.Context, sessionID string) (json.RawMessage, error) {
+func (c *Client) GenerateSummary(ctx context.Context, sessionID string, runtime *AgentRuntimePayload) (json.RawMessage, error) {
+	payload := map[string]interface{}{}
+	if runtime != nil {
+		payload["agent_runtime"] = runtime
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal summary request: %w", err)
+	}
+
 	url := c.baseURL + "/sessions/" + sessionID + "/summary"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create summary request: %w", err)
 	}
+	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -262,8 +273,9 @@ type StageExperienceItem struct {
 
 // GenerateStageSummaryRequest is the payload sent to the Agent's stage endpoint.
 type GenerateStageSummaryRequest struct {
-	PeriodLabel string                `json:"period_label"`
-	Experiences []StageExperienceItem `json:"experiences"`
+	PeriodLabel  string                `json:"period_label"`
+	Experiences  []StageExperienceItem `json:"experiences"`
+	AgentRuntime *AgentRuntimePayload  `json:"agent_runtime,omitempty"`
 }
 
 // GenerateStageSummaryResponse is what the Agent returns for a stage roll-up.
@@ -340,6 +352,7 @@ type GrowthStageSummaryItem struct {
 type GenerateGrowthProfileRequest struct {
 	Medals         []GrowthMedalItem        `json:"medals"`
 	StageSummaries []GrowthStageSummaryItem `json:"stageSummaries"`
+	AgentRuntime   *AgentRuntimePayload     `json:"agent_runtime,omitempty"`
 }
 
 type GrowthExperienceType struct {
@@ -453,6 +466,7 @@ type GenerateYearReviewRequest struct {
 	StageSummaries []YearStageItem        `json:"stage_summaries"`
 	GrowthProfile  *GrowthProfileSnapshot `json:"growth_profile,omitempty"`
 	Stats          YearReviewStats        `json:"stats"`
+	AgentRuntime   *AgentRuntimePayload   `json:"agent_runtime,omitempty"`
 }
 
 // MilestoneMedal is a medal selected as a year milestone.

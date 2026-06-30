@@ -6,6 +6,7 @@ import {
   type GrowthProfileSnapshot,
   type YearReviewStats,
 } from "../../graphs/year-review.graph.js";
+import type { AgentRuntimeConfig } from "../../providers/index.js";
 
 interface GenerateYearReviewBody {
   year?: number;
@@ -13,6 +14,7 @@ interface GenerateYearReviewBody {
   stage_summaries?: YearStageItem[];
   growth_profile?: GrowthProfileSnapshot;
   stats?: YearReviewStats;
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 export async function yearReviewRoutes(app: FastifyInstance) {
@@ -42,7 +44,14 @@ export async function yearReviewRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await generateYearReview(year, medals, stageSummaries, growthProfile, stats);
+      const result = await generateYearReview(
+        year,
+        medals,
+        stageSummaries,
+        growthProfile,
+        stats,
+        body.agent_runtime,
+      );
       return result;
     } catch (error) {
       request.log.error(error, "year review generation failed");

@@ -75,11 +75,12 @@ func PeriodBounds(p PeriodType, t time.Time) (start, end time.Time) {
 
 // GenerateInput parameterizes a single stage-summary generation.
 type GenerateInput struct {
-	UserID      string
-	Period      PeriodType
-	PeriodStart time.Time
-	PeriodEnd   time.Time
-	Trigger     string // "manual" | "scheduled"
+	UserID       string
+	Period       PeriodType
+	PeriodStart  time.Time
+	PeriodEnd    time.Time
+	Trigger      string // "manual" | "scheduled"
+	AgentRuntime *agent.AgentRuntimePayload
 }
 
 // Generate produces a stage summary for the given user and window. It is
@@ -146,8 +147,9 @@ func (s *Service) Generate(ctx context.Context, in GenerateInput) (*database.Sta
 
 	// Call the Agent to produce the roll-up.
 	agentResp, err := s.agentClient.GenerateStageSummary(ctx, &agent.GenerateStageSummaryRequest{
-		PeriodLabel: in.Period.label(),
-		Experiences: items,
+		PeriodLabel:  in.Period.label(),
+		Experiences:  items,
+		AgentRuntime: in.AgentRuntime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("agent stage summary: %w", err)

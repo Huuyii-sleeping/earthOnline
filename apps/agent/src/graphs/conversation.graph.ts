@@ -117,6 +117,7 @@ function buildChatMessages(
  */
 export async function generateConversationSummary(
   history: { role: "user" | "assistant"; content: string }[],
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<{
   experienceSummary: string;
   keyMoments: string[];
@@ -134,7 +135,7 @@ export async function generateConversationSummary(
     { role: "user", content: `以下是对话内容，请生成总结：\n\n${conversationText}` },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   // Parse JSON from response

@@ -1,5 +1,5 @@
 import { growthProfilePromptV1 } from "../prompts/growth-profile.v1.js";
-import { getLLMProvider } from "../providers/index.js";
+import { getLLMProviderFromRuntime, type AgentRuntimeConfig } from "../providers/index.js";
 import type { ChatMessage } from "../providers/types.js";
 import { growthProfileSchema, type GrowthProfileGeneration } from "../schemas/growth-profile.js";
 
@@ -102,6 +102,7 @@ function parseGrowthProfile(raw: string): GrowthProfileGeneration {
 export async function generateGrowthProfile(
   medals: GrowthMedalItem[],
   stageSummaries: GrowthStageSummaryItem[],
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<GrowthProfileGeneration> {
   const systemPrompt = growthProfilePromptV1.template;
   const medalsText = buildMedalsContext(medals);
@@ -122,7 +123,7 @@ export async function generateGrowthProfile(
     { role: "user", content: userContent },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   return parseGrowthProfile(response.content);

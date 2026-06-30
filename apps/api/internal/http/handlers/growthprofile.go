@@ -9,6 +9,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/domain/growthprofile"
 	"github.com/earth-online/api/internal/http/dto"
+	"github.com/earth-online/api/internal/integrations/agent"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -62,10 +63,22 @@ func (h *GrowthProfileHandler) RefreshGrowthProfile(c *gin.Context) {
 		req.Scope = "all"
 	}
 
+	// Forward browser-side LLM credentials if provided.
+	var runtime *agent.AgentRuntimePayload
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		runtime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
 	profile, err := h.service.Refresh(c.Request.Context(), growthprofile.RefreshInput{
-		UserID:  viewerID,
-		Scope:   req.Scope,
-		Trigger: "manual",
+		UserID:       viewerID,
+		Scope:        req.Scope,
+		Trigger:      "manual",
+		AgentRuntime: runtime,
 	})
 	if err != nil {
 		if errors.Is(err, growthprofile.ErrNoSignals) {

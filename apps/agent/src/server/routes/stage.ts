@@ -3,10 +3,12 @@ import {
   generateStageSummary,
   type StageExperienceItem,
 } from "../../graphs/stage-summary.graph.js";
+import type { AgentRuntimeConfig } from "../../providers/index.js";
 
 interface GenerateStageSummaryBody {
   period_label?: string;
   experiences?: StageExperienceItem[];
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 export async function stageRoutes(app: FastifyInstance) {
@@ -19,7 +21,11 @@ export async function stageRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await generateStageSummary(body.experiences, body.period_label ?? "这段时间");
+      const result = await generateStageSummary(
+        body.experiences,
+        body.period_label ?? "这段时间",
+        body.agent_runtime,
+      );
       return result;
     } catch (error) {
       request.log.error(error, "stage summary generation failed");

@@ -114,12 +114,15 @@ export async function conversationRoutes(app: FastifyInstance) {
 
   // Generate pre-generation summary
   app.post("/sessions/:sessionId/summary", async (request, reply) => {
-    const body = request.body as { history?: { role: "user" | "assistant"; content: string }[] };
+    const body = request.body as {
+      history?: { role: "user" | "assistant"; content: string }[];
+      agent_runtime?: AgentRuntimeConfig | null;
+    };
 
     const history = body?.history || [];
 
     try {
-      const summary = await generateConversationSummary(history);
+      const summary = await generateConversationSummary(history, body.agent_runtime);
       return summary;
     } catch (error) {
       request.log.error(error, "summary generation failed");

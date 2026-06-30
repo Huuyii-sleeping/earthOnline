@@ -90,6 +90,16 @@ func (h *MedalHandler) GenerateMedal(c *gin.Context) {
 		History:    history,
 	}
 
+	// Forward browser-side LLM credentials if provided
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		agentReq.AgentRuntime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
 	agentResp, err := h.agentClient.GenerateMedal(ctx, agentReq)
 	if err != nil {
 		h.logger.Error("agent medal generation failed", "error", err)
@@ -333,6 +343,16 @@ func (h *MedalHandler) RegenerateMeaning(c *gin.Context) {
 		History:    history,
 		Direction:  direction,
 		UserInput:  userInput,
+	}
+
+	// Forward browser-side LLM credentials if provided
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		agentReq.AgentRuntime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
 	}
 
 	agentResp, err := h.agentClient.RegenerateMeaning(ctx, agentReq)

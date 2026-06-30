@@ -1,5 +1,5 @@
 import { stageSummaryPromptV1 } from "../prompts/stage-summary.v1.js";
-import { getLLMProvider } from "../providers/index.js";
+import { getLLMProviderFromRuntime, type AgentRuntimeConfig } from "../providers/index.js";
 import type { ChatMessage } from "../providers/types.js";
 import { stageSummarySchema, type StageSummaryGeneration } from "../schemas/stage-summary.js";
 
@@ -56,6 +56,7 @@ function parseStageSummary(raw: string): StageSummaryGeneration {
 export async function generateStageSummary(
   experiences: StageExperienceItem[],
   periodLabel: string,
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<StageSummaryGeneration> {
   const systemPrompt = stageSummaryPromptV1.template;
   const experiencesText = buildExperiencesContext(experiences);
@@ -67,7 +68,7 @@ export async function generateStageSummary(
     { role: "user", content: userContent },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   return parseStageSummary(response.content);

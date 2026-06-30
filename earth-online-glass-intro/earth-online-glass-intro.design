@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "id": "page-product-intro",
+      "title": "产品介绍页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1782747237000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/product-intro.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "image-001",
+      "title": "产品界面展示",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1782747237000,
+      "canvasData": {
+        "x": 0,
+        "y": 997
+      },
+      "devMetadata": {
+        "imageSrc": "assets/hero-product-mockup.jpg"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "EarthOnline 玻璃质感产品介绍页",
+    "designLibrary": null
+  }
+}

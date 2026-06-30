@@ -4,10 +4,12 @@ import {
   type GrowthMedalItem,
   type GrowthStageSummaryItem,
 } from "../../graphs/growth-profile.graph.js";
+import type { AgentRuntimeConfig } from "../../providers/index.js";
 
 interface GenerateGrowthProfileBody {
   medals?: GrowthMedalItem[];
   stageSummaries?: GrowthStageSummaryItem[];
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 export async function growthProfileRoutes(app: FastifyInstance) {
@@ -25,7 +27,7 @@ export async function growthProfileRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await generateGrowthProfile(medals, stageSummaries);
+      const result = await generateGrowthProfile(medals, stageSummaries, body.agent_runtime);
       return result;
     } catch (error) {
       request.log.error(error, "growth profile generation failed");

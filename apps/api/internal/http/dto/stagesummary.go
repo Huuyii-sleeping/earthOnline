@@ -11,8 +11,9 @@ import (
 // the window granularity; RefDate (optional, YYYY-MM-DD) picks which window —
 // defaulting to the period containing "now" when omitted.
 type GenerateStageSummaryRequest struct {
-	PeriodType string `json:"period_type" binding:"required,oneof=week month"`
-	RefDate    string `json:"ref_date" binding:"omitempty,datetime=2006-01-02"`
+	PeriodType   string              `json:"period_type" binding:"required,oneof=week month"`
+	RefDate      string              `json:"ref_date" binding:"omitempty,datetime=2006-01-02"`
+	AgentRuntime *AgentRuntimeConfig `json:"agent_runtime" binding:"omitempty"`
 }
 
 // StageSummaryResponse is the API representation of a stage summary. Highlights

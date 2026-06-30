@@ -33,7 +33,8 @@ type EmptyGrowthProfileResponse struct {
 }
 
 type RefreshGrowthProfileRequest struct {
-	Scope string `json:"scope" binding:"omitempty,oneof=all recent"`
+	Scope        string              `json:"scope" binding:"omitempty,oneof=all recent"`
+	AgentRuntime *AgentRuntimeConfig `json:"agent_runtime" binding:"omitempty"`
 }
 
 type GrowthInsightResponse struct {

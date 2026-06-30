@@ -1,6 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { generateMedal, regenerateMedalMeaning, type MedalHistoryItem } from "../../graphs/experience-medal.graph.js";
+import {
+  generateMedal,
+  regenerateMedalMeaning,
+  type MedalHistoryItem,
+} from "../../graphs/experience-medal.graph.js";
 import { generateVisualInstructions } from "../../graphs/medal-visual.graph.js";
+import type { AgentRuntimeConfig } from "../../providers/index.js";
 
 interface GenerateMedalBody {
   session_id?: string;
@@ -8,6 +13,7 @@ interface GenerateMedalBody {
   history?: MedalHistoryItem[];
   direction?: string;
   user_input?: string;
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 interface GenerateVisualBody {
@@ -27,7 +33,7 @@ export async function medalRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await generateMedal(body.history, body.experience);
+      const result = await generateMedal(body.history, body.experience, body.agent_runtime);
       return result;
     } catch (error) {
       request.log.error(error, "medal generation failed");
@@ -52,6 +58,7 @@ export async function medalRoutes(app: FastifyInstance) {
         body.direction,
         body.user_input,
         body.experience,
+        body.agent_runtime,
       );
       return result;
     } catch (error) {

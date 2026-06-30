@@ -8,7 +8,8 @@ import (
 // --- Annual review (年度回顾) ---
 
 type GenerateAnnualReviewRequest struct {
-	Year int `json:"year" binding:"required,min=2020,max=2100"`
+	Year         int                 `json:"year" binding:"required,min=2020,max=2100"`
+	AgentRuntime *AgentRuntimeConfig `json:"agent_runtime" binding:"omitempty"`
 }
 
 type AnnualReviewResponse struct {

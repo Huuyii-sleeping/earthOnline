@@ -1,5 +1,12 @@
-import { medalGenerationPromptV1, medalRegenerationPromptV1 } from "../prompts/medal-generation.v1.js";
-import { getLLMProvider } from "../providers/index.js";
+import {
+  medalGenerationPromptV1,
+  medalRegenerationPromptV1,
+} from "../prompts/medal-generation.v1.js";
+import {
+  getLLMProvider,
+  getLLMProviderFromRuntime,
+  type AgentRuntimeConfig,
+} from "../providers/index.js";
 import type { ChatMessage } from "../providers/types.js";
 import type { MedalGeneration } from "../schemas/medal.js";
 
@@ -65,6 +72,7 @@ function parseMedalResponse(raw: string): MedalGeneration {
 export async function generateMedal(
   history: MedalHistoryItem[],
   experienceSummary?: string,
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<MedalGeneration> {
   const systemPrompt = medalGenerationPromptV1.template;
   const conversationText = buildConversationContext(history);
@@ -79,7 +87,7 @@ export async function generateMedal(
     { role: "user", content: userContent },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   return parseMedalResponse(response.content);
@@ -94,6 +102,7 @@ export async function regenerateMedalMeaning(
   direction?: string,
   userInput?: string,
   experienceSummary?: string,
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<MedalGeneration> {
   const systemPrompt = medalRegenerationPromptV1.template;
   const conversationText = buildConversationContext(history);
@@ -124,7 +133,7 @@ export async function regenerateMedalMeaning(
     { role: "user", content: userContent },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   return parseMedalResponse(response.content);

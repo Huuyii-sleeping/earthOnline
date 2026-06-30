@@ -10,6 +10,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/domain/yearreview"
 	"github.com/earth-online/api/internal/http/dto"
+	"github.com/earth-online/api/internal/integrations/agent"
 	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -40,10 +41,22 @@ func (h *YearReviewHandler) GenerateYearReview(c *gin.Context) {
 		return
 	}
 
+	// Forward browser-side LLM credentials if provided.
+	var runtime *agent.AgentRuntimePayload
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		runtime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
 	review, err := h.service.Generate(c.Request.Context(), yearreview.GenerateInput{
-		UserID:  viewerID,
-		Year:    req.Year,
-		Trigger: "manual",
+		UserID:       viewerID,
+		Year:         req.Year,
+		Trigger:      "manual",
+		AgentRuntime: runtime,
 	})
 	if err != nil {
 		if errors.Is(err, yearreview.ErrAlreadyExists) {

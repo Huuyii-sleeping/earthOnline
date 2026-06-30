@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { useAgentRuntimeConfigStore } from "@/features/agent/runtimeConfig";
 
 // --- Growth profile (成长画像 M8) ---
 
@@ -58,8 +59,19 @@ export async function getGrowthProfile(): Promise<GrowthProfile> {
 export async function refreshGrowthProfile(
   scope: "all" | "recent" = "all",
 ): Promise<GrowthProfile> {
+  const agentConfig = useAgentRuntimeConfigStore.getState();
+  const agentRuntime = agentConfig.isConfigured
+    ? {
+        api_url: agentConfig.apiUrl,
+        api_key: agentConfig.apiKey,
+        model: agentConfig.model,
+        system_prompt: agentConfig.systemPrompt,
+      }
+    : undefined;
+
   const res = await apiClient.post<{ data: GrowthProfile }>(`/growth-profile/refresh`, {
     scope,
+    agent_runtime: agentRuntime,
   });
   return res.data.data;
 }

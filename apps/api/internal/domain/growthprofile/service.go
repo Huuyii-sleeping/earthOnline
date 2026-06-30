@@ -36,9 +36,10 @@ func NewService(db *gorm.DB, agentClient *agent.Client, logger *slog.Logger) *Se
 }
 
 type RefreshInput struct {
-	UserID  string
-	Scope   string
-	Trigger string
+	UserID       string
+	Scope        string
+	Trigger      string
+	AgentRuntime *agent.AgentRuntimePayload
 }
 
 func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*database.GrowthProfile, error) {
@@ -67,6 +68,7 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*database.Growt
 	agentResp, err := s.agentClient.GenerateGrowthProfile(ctx, &agent.GenerateGrowthProfileRequest{
 		Medals:         medals,
 		StageSummaries: stages,
+		AgentRuntime:   in.AgentRuntime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("agent growth profile: %w", err)

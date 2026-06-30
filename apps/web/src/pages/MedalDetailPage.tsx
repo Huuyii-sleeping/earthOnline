@@ -8,7 +8,6 @@ import {
   regenerateMeaning,
   listMedalVersions,
 } from "@/features/medals/medalApi";
-import { useMedalStore } from "@/features/medals/medalStore";
 import type { Medal, MedalVersion } from "@earth-online/shared";
 
 function formatDate(value: string) {
@@ -30,7 +29,6 @@ const memoryWeightLabels: Record<string, string> = {
 export default function MedalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const removeMedal = useMedalStore((state) => state.removeMedal);
 
   const [medal, setMedal] = useState<Medal | null>(null);
   const [versions, setVersions] = useState<MedalVersion[]>([]);
@@ -115,10 +113,14 @@ export default function MedalDetailPage() {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!medal) return;
-    removeMedal(medal.id);
-    navigate("/profile", { replace: true });
+    try {
+      await updateMedal(medal.id, { visibility: "private" });
+      navigate("/profile", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "操作失败");
+    }
   };
 
   return (

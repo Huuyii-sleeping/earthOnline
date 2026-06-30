@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { useAgentRuntimeConfigStore } from "@/features/agent/runtimeConfig";
 
 export type PeriodType = "week" | "month";
 
@@ -60,8 +61,19 @@ export async function listStageSummaries(periodType?: PeriodType): Promise<Stage
 }
 
 export async function generateStageSummary(periodType: PeriodType): Promise<StageSummary> {
+  const agentConfig = useAgentRuntimeConfigStore.getState();
+  const agentRuntime = agentConfig.isConfigured
+    ? {
+        api_url: agentConfig.apiUrl,
+        api_key: agentConfig.apiKey,
+        model: agentConfig.model,
+        system_prompt: agentConfig.systemPrompt,
+      }
+    : undefined;
+
   const res = await apiClient.post<{ data: StageSummary }>("/stage-summaries/generate", {
     period_type: periodType,
+    agent_runtime: agentRuntime,
   });
   return res.data.data;
 }

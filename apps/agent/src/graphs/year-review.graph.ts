@@ -1,5 +1,5 @@
 import { yearReviewPromptV1 } from "../prompts/year-review.v1.js";
-import { getLLMProvider } from "../providers/index.js";
+import { getLLMProviderFromRuntime, type AgentRuntimeConfig } from "../providers/index.js";
 import type { ChatMessage } from "../providers/types.js";
 import { yearReviewSchema, type YearReviewGeneration } from "../schemas/year-review.js";
 
@@ -119,6 +119,7 @@ export async function generateYearReview(
   stageSummaries: YearStageItem[],
   growthProfile: GrowthProfileSnapshot | undefined,
   stats: YearReviewStats,
+  runtime?: AgentRuntimeConfig | null,
 ): Promise<YearReviewGeneration> {
   const systemPrompt = yearReviewPromptV1.template;
   const medalsText = buildMedalsContext(medals);
@@ -148,7 +149,7 @@ export async function generateYearReview(
     { role: "user", content: userContent },
   ];
 
-  const provider = getLLMProvider();
+  const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
   return parseYearReview(response.content);

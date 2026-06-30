@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="en" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>经历成就官 — 把真实经历变成可以展示的成就</title>
+    <style id="theme-vars">
+      /* Earth Online — Glassmorphism Brand CSS */
+      /* Free-explore mode: warm-cool hybrid on dark canvas */
+
+      /* ── Design Tokens ── */
+      :root {
+        /* Palette — dark base + brand aurora orbs */
+        --color-bg-deep: #0b0d17;
+        --color-bg-surface: #13141f;
+        --color-bg-elevated: #1a1b2e;
+
+        /* Brand hues (from existing identity) */
+        --color-sage: #6f8f72;
+        --color-coral: #e9785f;
+        --color-gold: #d5a63a;
+        --color-blue: #5876a3;
+
+        /* Glass system */
+        --glass-bg: rgba(255, 255, 255, 0.06);
+        --glass-bg-hover: rgba(255, 255, 255, 0.1);
+        --glass-bg-strong: rgba(255, 255, 255, 0.12);
+        --glass-border: rgba(255, 255, 255, 0.12);
+        --glass-border-bright: rgba(255, 255, 255, 0.2);
+        --glass-blur: blur(40px) saturate(180%);
+        --glass-blur-light: blur(24px) saturate(150%);
+        --glass-blur-strong: blur(60px) saturate(200%);
+
+        /* Glass shadow */
+        --shadow-glass:
+          0 0 0 1px rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.12),
+          0 16px 48px rgba(0, 0, 0, 0.18);
+        --shadow-glass-hover:
+          0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.16),
+          0 24px 64px rgba(0, 0, 0, 0.22);
+        --shadow-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+        /* Text on dark */
+        --text-heading: rgba(255, 255, 255, 0.95);
+        --text-body: rgba(255, 255, 255, 0.72);
+        --text-muted: rgba(255, 255, 255, 0.48);
+        --text-brand: var(--color-gold);
+
+        /* State colors (semantic only) */
+        --state-success: #34d399;
+        --state-warning: #fbbf24;
+        --state-error: #f87171;
+        --state-info: #60a5fa;
+
+        /* Radius */
+        --radius-sm: 4px;
+        --radius-md: 8px;
+        --radius-lg: 16px;
+        --radius-xl: 24px;
+        --radius-full: 9999px;
+
+        /* Spacing base */
+        --space-unit: 8px;
+
+        /* ── Typography ── */
+        /* Title / Display */
+        --font-display: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        /* Body */
+        --font-body: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+
+        /* Type scale (desktop) */
+        --text-xs: 0.75rem; /* 12px */
+        --text-sm: 0.875rem; /* 14px */
+        --text-base: 1rem; /* 16px */
+        --text-lg: 1.125rem; /* 18px */
+        --text-xl: 1.25rem; /* 20px */
+        --text-2xl: 1.5rem; /* 24px */
+        --text-3xl: 1.875rem; /* 30px */
+        --text-4xl: 2.25rem; /* 36px */
+        --text-5xl: 3rem; /* 48px */
+        --text-6xl: 3.75rem; /* 60px */
+        --text-7xl: 4.5rem; /* 72px */
+        --text-8xl: 6rem; /* 96px */
+
+        /* Line heights */
+        --leading-none: 1;
+        --leading-tight: 1.15;
+        --leading-snug: 1.3;
+        --leading-normal: 1.6;
+        --leading-relaxed: 1.75;
+
+        /* Letter spacing */
+        --tracking-tight: -0.03em;
+        --tracking-normal: 0;
+        --tracking-wide: 0.06em;
+        --tracking-widest: 0.12em;
+
+        /* Font weights */
+        --font-regular: 400;
+        --font-medium: 500;
+        --font-semibold: 600;
+        --font-bold: 700;
+        --font-extrabold: 800;
+      }
+
+      /* ── Base Layer ── */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-body);
+        font-size: var(--text-base);
+        line-height: var(--leading-normal);
+        color: var(--text-body);
+        background: var(--color-bg-deep);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* ── Glass Utility Classes ── */
+      .glass {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-glass);
+      }
+
+      .glass-strong {
+        background: var(--glass-bg-strong);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border-bright);
+        box-shadow: var(--shadow-glass);
+      }
+
+      .glass-subtle {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: var(--glass-blur-light);
+        -webkit-backdrop-filter: var(--glass-blur-light);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      /* ── Aurora Orb Base ── */
+      .orb {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        filter: blur(100px);
+        opacity: 0.5;
+        will-change: transform;
+      }
+
+      /* ── Brand Gradient Text ── */
+      .brand-gradient-text {
+        background: linear-gradient(
+          135deg,
+          var(--color-gold) 0%,
+          var(--color-coral) 50%,
+          var(--color-sage) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* ── Button Styles ── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--glass-border);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        color: var(--text-heading);
+        font-weight: var(--font-semibold);
+        font-size: var(--text-sm);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-glass);
+      }
+
+      .btn-primary:hover {
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow: var(--shadow-glass-hover);
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        color: var(--text-body);
+        font-weight: var(--font-medium);
+        font-size: var(--text-sm);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-heading);
+      }
+
+      /* ── Light Theme Override ── */
+      html.light {
+        --color-bg-deep: #f5f3ee;
+        --color-bg-surface: #ffffff;
+        --color-bg-elevated: #ffffff;
+
+        --glass-bg: rgba(255, 255, 255, 0.55);
+        --glass-bg-hover: rgba(255, 255, 255, 0.7);
+        --glass-bg-strong: rgba(255, 255, 255, 0.75);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --glass-border-bright: rgba(0, 0, 0, 0.14);
+        --glass-blur: blur(40px) saturate(120%);
+        --glass-blur-light: blur(24px) saturate(100%);
+        --glass-blur-strong: blur(60px) saturate(140%);
+
+        --shadow-glass:
+          0 0 0 1px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06),
+          0 16px 48px rgba(0, 0, 0, 0.08);
+        --shadow-glass-hover:
+          0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.1),
+          0 24px 64px rgba(0, 0, 0, 0.12);
+        --shadow-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+        --text-heading: rgba(23, 32, 27, 0.92);
+        --text-body: rgba(100, 112, 105, 0.82);
+        --text-muted: rgba(100, 112, 105, 0.52);
+        --text-brand: #b8860b;
+      }
+
+      html.light .glass-subtle {
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+      }
+
+      html.light .btn-primary {
+        background: rgba(0, 0, 0, 0.05);
+        border-color: rgba(0, 0, 0, 0.1);
+        color: var(--text-heading);
+      }
+      html.light .btn-primary:hover {
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      html.light .btn-secondary {
+        border-color: rgba(0, 0, 0, 0.1);
+        color: var(--text-body);
+      }
+      html.light .btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.04);
+        color: var(--text-heading);
+      }
+
+      html.light .orb {
+        opacity: 0.25;
+        filter: blur(120px);
+      }
+
+      html.light .brand-gradient-text {
+        background: linear-gradient(135deg, #a07828 0%, #c0614a 50%, #4e7a52 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      html.light .btn-primary::before {
+        background: linear-gradient(135deg, #b8860b, #c0614a, #4e7a52);
+        opacity: 0.4;
+      }
+      html.light .btn-primary:hover::before {
+        opacity: 0.7;
+      }
+
+      /* ── Theme Toggle Button ── */
+      .theme-toggle {
+        position: relative;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--glass-border);
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur-light);
+        -webkit-backdrop-filter: var(--glass-blur-light);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-body);
+        transition: all 0.25s ease;
+        flex-shrink: 0;
+      }
+      .theme-toggle:hover {
+        background: var(--glass-bg-hover);
+        color: var(--text-heading);
+        transform: scale(1.05);
+      }
+      .theme-toggle svg {
+        width: 18px;
+        height: 18px;
+        transition:
+          transform 0.4s ease,
+          opacity 0.3s ease;
+      }
+      .theme-toggle .icon-sun {
+        position: absolute;
+        opacity: 0;
+        transform: rotate(-90deg) scale(0.5);
+      }
+      .theme-toggle .icon-moon {
+        position: absolute;
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      }
+      html.light .theme-toggle .icon-sun {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      }
+      html.light .theme-toggle .icon-moon {
+        opacity: 0;
+        transform: rotate(90deg) scale(0.5);
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+      @theme inline {
+        --color-muted: var(--text-muted);
+      }
+      @layer base {
+        body {
+          background: var(--text-background);
+          color: var(--text-foreground);
+        }
+        td,
+        th {
+          @apply break-words;
+          word-break: break-all;
+          word-break: auto-phrase;
+        }
+        th {
+          @apply whitespace-nowrap;
+        }
+      }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen font-sans antialiased">
+    <main>
+      <!-- ═══════════ Aurora Orbs ═══════════ -->
+      <div
+        class="orb"
+        style="
+          width: 600px;
+          height: 600px;
+          background: var(--color-sage);
+          top: -10%;
+          left: -5%;
+          animation: orb-drift-1 22s ease-in-out infinite;
+        "
+      ></div>
+      <div
+        class="orb"
+        style="
+          width: 500px;
+          height: 500px;
+          background: var(--color-coral);
+          top: 20%;
+          right: -8%;
+          animation: orb-drift-2 26s ease-in-out infinite;
+        "
+      ></div>
+      <div
+        class="orb"
+        style="
+          width: 550px;
+          height: 550px;
+          background: var(--color-gold);
+          bottom: 5%;
+          left: 30%;
+          animation: orb-drift-3 24s ease-in-out infinite;
+        "
+      ></div>
+      <div
+        class="orb"
+        style="
+          width: 480px;
+          height: 480px;
+          background: var(--color-blue);
+          top: 50%;
+          left: -12%;
+          animation: orb-drift-4 20s ease-in-out infinite;
+        "
+      ></div>
+
+      <!-- ═══════════ Navbar ═══════════ -->
+      <nav class="glass sticky top-0 z-50" style="border-bottom: 1px solid var(--glass-border)">
+        <div
+          class="mx-auto flex items-center justify-between px-4 sm:px-6 py-3"
+          style="max-width: 1152px"
+        >
+          <a
+            href="#"
+            class="flex items-center gap-2"
+            style="
+              color: var(--text-heading);
+              text-decoration: none;
+              font-weight: var(--font-semibold);
+              font-size: var(--text-sm);
+            "
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 8V4H8" />
+              <rect width="16" height="12" x="4" y="8" rx="2" />
+              <path d="M2 14h2" />
+              <path d="M20 14h2" />
+              <path d="M15 13v2" />
+              <path d="M9 13v2" />
+            </svg>
+            经历成就官
+          </a>
+          <div class="flex items-center gap-3">
+            <a
+              href="#"
+              class="hidden sm:inline-flex"
+              style="
+                color: var(--text-body);
+                font-size: var(--text-sm);
+                text-decoration: none;
+                transition: color 0.2s;
+              "
+              onmouseover="this.style.color = 'var(--text-heading)'"
+              onmouseout="this.style.color = 'var(--text-body)'"
+              >登录</a
+            >
+            <button
+              class="theme-toggle"
+              id="themeToggle"
+              aria-label="切换深色/浅色主题"
+              title="切换主题"
+            >
+              <svg
+                class="icon-moon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+              <svg
+                class="icon-sun"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" x2="12" y1="1" y2="3" />
+                <line x1="12" x2="12" y1="21" y2="23" />
+                <line x1="4.22" x2="5.64" y1="4.22" y2="5.64" />
+                <line x1="18.36" x2="19.78" y1="18.36" y2="19.78" />
+                <line x1="1" x2="3" y1="12" y2="12" />
+                <line x1="21" x2="23" y1="12" y2="12" />
+                <line x1="4.22" x2="5.64" y1="19.78" y2="18.36" />
+                <line x1="18.36" x2="19.78" y1="5.64" y2="4.22" />
+              </svg>
+            </button>
+            <a href="#" class="btn-primary" style="padding: 8px 16px; font-size: var(--text-xs)"
+              >进入产品</a
+            >
+          </div>
+        </div>
+      </nav>
+
+      <!-- ═══════════ Hero Section ═══════════ -->
+      <section
+        class="relative flex flex-col items-center justify-center px-4 sm:px-6 pt-16 sm:pt-24 pb-12 sm:pb-16"
+        style="min-height: 100vh; min-height: 100dvh"
+      >
+        <div class="relative z-10 flex flex-col items-center w-full" style="max-width: 896px">
+          <!-- Badge -->
+          <div
+            class="glass-subtle flex items-center gap-2 px-4 py-1.5"
+            style="
+              border-radius: var(--radius-full);
+              font-size: var(--text-xs);
+              color: var(--text-muted);
+              font-weight: var(--font-medium);
+              letter-spacing: var(--tracking-wide);
+            "
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"
+              />
+              <path d="M5 3v4" />
+              <path d="M19 17v4" />
+              <path d="M3 5h4" />
+              <path d="M17 19h4" />
+            </svg>
+            Personal experience achievement system
+          </div>
+
+          <!-- Headline -->
+          <h1
+            class="mt-8 sm:mt-10 text-center"
+            style="
+              font-family: var(--font-display);
+              font-size: clamp(2.25rem, 6vw, 4.5rem);
+              font-weight: var(--font-extrabold);
+              line-height: var(--leading-tight);
+              letter-spacing: var(--tracking-tight);
+              color: var(--text-heading);
+              text-wrap: balance;
+              word-break: keep-all;
+              overflow-wrap: break-word;
+            "
+          >
+            把真实经历变成<br class="sm:hidden" />
+            <span class="brand-gradient-text">可以展示的成就</span>
+          </h1>
+
+          <!-- Subtitle -->
+          <p
+            class="mt-6 text-center"
+            style="
+              max-width: 640px;
+              font-size: var(--text-base);
+              line-height: var(--leading-relaxed);
+              color: var(--text-body);
+            "
+          >
+            经历成就官让用户把一天的经历交给
+            Agent。系统会追问、提炼、生成一枚专属奖章，让生活不只是被记录，而是被理解和看见。
+          </p>
+
+          <!-- CTA Buttons -->
+          <div class="mt-8 flex flex-col sm:flex-row items-center gap-3">
+            <a href="#" class="btn-primary relative overflow-hidden" style="padding: 14px 28px">
+              <!-- Gradient border via ::before -->
+              <span
+                style="position: relative; z-index: 1; display: flex; align-items: center; gap: 8px"
+              >
+                开始创建经历
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </span>
+            </a>
+            <a href="#" class="btn-secondary" style="padding: 14px 28px">
+              了解更多
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </a>
+          </div>
+
+          <!-- Product Mockup -->
+          <div
+            class="mt-12 sm:mt-16 w-full glass-strong overflow-hidden"
+            style="
+              border-radius: var(--radius-lg);
+              box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
+            "
+          >
+            <img
+              src="../assets/hero-product-mockup.jpg"
+              alt="经历成就官产品界面 — 对话式经历采集与奖章生成"
+              class="w-full"
+              style="display: block; object-fit: cover; max-height: 480px"
+            />
+          </div>
+
+          <!-- Example Tags -->
+          <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 w-full" style="max-width: 896px">
+            <div
+              class="glass-subtle px-3 py-2 truncate"
+              style="
+                border-radius: var(--radius-md);
+                font-size: var(--text-xs);
+                color: var(--text-muted);
+              "
+            >
+              旅行后
+            </div>
+            <div
+              class="glass-subtle px-3 py-2 truncate"
+              style="
+                border-radius: var(--radius-md);
+                font-size: var(--text-xs);
+                color: var(--text-muted);
+              "
+            >
+              完成重要任务
+            </div>
+            <div
+              class="glass-subtle px-3 py-2 truncate"
+              style="
+                border-radius: var(--radius-md);
+                font-size: var(--text-xs);
+                color: var(--text-muted);
+              "
+            >
+              和朋友深聊
+            </div>
+            <div
+              class="glass-subtle px-3 py-2 truncate"
+              style="
+                border-radius: var(--radius-md);
+                font-size: var(--text-xs);
+                color: var(--text-muted);
+              "
+            >
+              一个值得记住的夜晚
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ Process Section ═══════════ -->
+      <section class="relative px-4 sm:px-6 py-16 sm:py-24">
+        <div class="relative z-10 mx-auto" style="max-width: 1152px">
+          <!-- Section Heading -->
+          <div class="text-center mb-12 sm:mb-16">
+            <p
+              class="mb-3"
+              style="
+                font-size: var(--text-xs);
+                font-weight: var(--font-medium);
+                letter-spacing: var(--tracking-widest);
+                text-transform: uppercase;
+                color: var(--text-muted);
+              "
+            >
+              How it works
+            </p>
+            <h2
+              class="brand-gradient-text text-center"
+              style="
+                font-family: var(--font-display);
+                font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+                font-weight: var(--font-bold);
+                line-height: var(--leading-tight);
+                letter-spacing: var(--tracking-tight);
+                text-wrap: balance;
+                word-break: keep-all;
+                overflow-wrap: break-word;
+              "
+            >
+              三步将经历转化为奖章
+            </h2>
+          </div>
+
+          <!-- Process Cards -->
+          <div class="grid gap-4 sm:gap-6 md:grid-cols-3">
+            <!-- Step 1 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-center justify-between mb-10">
+                <span
+                  style="
+                    font-family: var(--font-body);
+                    font-size: var(--text-xs);
+                    color: var(--text-muted);
+                    letter-spacing: var(--tracking-widest);
+                  "
+                  >01</span
+                >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-sage)"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <path d="m9 11 3 3L22 4" />
+                </svg>
+              </div>
+              <h3
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-2xl);
+                  font-weight: var(--font-bold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                Capture
+              </h3>
+              <p
+                class="mt-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                用对话、图片、语音输入一天里的真实经历。
+              </p>
+            </div>
+            <!-- Step 2 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-center justify-between mb-10">
+                <span
+                  style="
+                    font-family: var(--font-body);
+                    font-size: var(--text-xs);
+                    color: var(--text-muted);
+                    letter-spacing: var(--tracking-widest);
+                  "
+                  >02</span
+                >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-coral)"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <path d="m9 11 3 3L22 4" />
+                </svg>
+              </div>
+              <h3
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-2xl);
+                  font-weight: var(--font-bold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                Distill
+              </h3>
+              <p
+                class="mt-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                Agent 追问行动、情绪和意义，提炼经历的核心价值。
+              </p>
+            </div>
+            <!-- Step 3 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-center justify-between mb-10">
+                <span
+                  style="
+                    font-family: var(--font-body);
+                    font-size: var(--text-xs);
+                    color: var(--text-muted);
+                    letter-spacing: var(--tracking-widest);
+                  "
+                  >03</span
+                >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-gold)"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <path d="m9 11 3 3L22 4" />
+                </svg>
+              </div>
+              <h3
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-2xl);
+                  font-weight: var(--font-bold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                Medalize
+              </h3>
+              <p
+                class="mt-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                生成可展示的奖章和可回看的经历详情。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ Features Section ═══════════ -->
+      <section class="relative px-4 sm:px-6 py-16 sm:py-24">
+        <div class="relative z-10 mx-auto" style="max-width: 1152px">
+          <!-- Section Heading -->
+          <div class="text-center mb-12 sm:mb-16">
+            <p
+              class="mb-3"
+              style="
+                font-size: var(--text-xs);
+                font-weight: var(--font-medium);
+                letter-spacing: var(--tracking-widest);
+                text-transform: uppercase;
+                color: var(--text-muted);
+              "
+            >
+              Product surface
+            </p>
+            <h2
+              class="brand-gradient-text text-center"
+              style="
+                font-family: var(--font-display);
+                font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+                font-weight: var(--font-bold);
+                line-height: var(--leading-tight);
+                letter-spacing: var(--tracking-tight);
+                text-wrap: balance;
+                word-break: keep-all;
+                overflow-wrap: break-word;
+              "
+            >
+              为你的经历设计的产品
+            </h2>
+            <p
+              class="mt-4 mx-auto"
+              style="
+                max-width: 560px;
+                font-size: var(--text-sm);
+                line-height: var(--leading-normal);
+                color: var(--text-body);
+              "
+            >
+              这个页面只负责介绍产品价值和使用方式。真正进入产品后，用户仍然回到首页的信息流、创建经历、个人主页和通知体系。
+            </p>
+          </div>
+
+          <!-- Feature Grid 2x2 -->
+          <div class="grid gap-4 sm:gap-6 sm:grid-cols-2">
+            <!-- Feature 1: 对话式经历采集 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[var(--shadow-glass-hover)]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-start justify-between">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-sage); flex-shrink: 0"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  <path d="M8 10h.01" />
+                  <path d="M12 10h.01" />
+                  <path d="M16 10h.01" />
+                </svg>
+              </div>
+              <h3
+                class="mt-6"
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-lg);
+                  font-weight: var(--font-semibold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                对话式经历采集
+              </h3>
+              <p
+                class="mt-3 line-clamp-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                用户不需要写完整日记，只要像聊天一样说出今天发生了什么。
+              </p>
+            </div>
+
+            <!-- Feature 2: 多模态材料输入 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[var(--shadow-glass-hover)]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-start justify-between">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-coral); flex-shrink: 0"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+              </div>
+              <h3
+                class="mt-6"
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-lg);
+                  font-weight: var(--font-semibold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                多模态材料输入
+              </h3>
+              <p
+                class="mt-3 line-clamp-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                照片、文字和语音会成为 Agent 判断经历重点的上下文。
+              </p>
+            </div>
+
+            <!-- Feature 3: 经历奖章生成 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[var(--shadow-glass-hover)]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-start justify-between">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-gold); flex-shrink: 0"
+                >
+                  <circle cx="12" cy="8" r="6" />
+                  <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+                </svg>
+              </div>
+              <h3
+                class="mt-6"
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-lg);
+                  font-weight: var(--font-semibold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                经历奖章生成
+              </h3>
+              <p
+                class="mt-3 line-clamp-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                奖章展示概括信息，点击后进入完整情节和意义说明。
+              </p>
+            </div>
+
+            <!-- Feature 4: 自主公开展示 -->
+            <div
+              class="glass relative overflow-hidden p-6 sm:p-8 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[var(--shadow-glass-hover)]"
+              style="border-radius: var(--radius-lg)"
+            >
+              <div class="flex items-start justify-between">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="color: var(--color-blue); flex-shrink: 0"
+                >
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+                  <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+                </svg>
+              </div>
+              <h3
+                class="mt-6"
+                style="
+                  font-family: var(--font-display);
+                  font-size: var(--text-lg);
+                  font-weight: var(--font-semibold);
+                  color: var(--text-heading);
+                  line-height: var(--leading-snug);
+                "
+              >
+                自主公开展示
+              </h3>
+              <p
+                class="mt-3 line-clamp-3"
+                style="
+                  font-size: var(--text-sm);
+                  line-height: var(--leading-normal);
+                  color: var(--text-body);
+                "
+              >
+                用户决定哪些奖章公开，哪些经历只保留在自己的档案里。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ Bottom CTA Section ═══════════ -->
+      <section class="relative px-4 sm:px-6 py-16 sm:py-24">
+        <div class="relative z-10 mx-auto" style="max-width: 1152px">
+          <div
+            class="glass-strong relative overflow-hidden p-6 sm:p-8 lg:p-12"
+            style="border-radius: var(--radius-xl)"
+          >
+            <!-- Gradient border effect via inner glow -->
+            <div class="relative z-10">
+              <div class="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <p
+                    class="mb-4"
+                    style="
+                      font-size: var(--text-xs);
+                      font-weight: var(--font-medium);
+                      letter-spacing: var(--tracking-widest);
+                      text-transform: uppercase;
+                      color: var(--text-muted);
+                    "
+                  >
+                    Build next
+                  </p>
+                  <h2
+                    style="
+                      font-family: var(--font-display);
+                      font-size: clamp(1.5rem, 3vw, 2.25rem);
+                      font-weight: var(--font-bold);
+                      color: var(--text-heading);
+                      line-height: var(--leading-tight);
+                      letter-spacing: var(--tracking-tight);
+                      text-wrap: balance;
+                      word-break: keep-all;
+                      overflow-wrap: break-word;
+                    "
+                  >
+                    下一步，把 Agent 生成的奖章变成完整可保存的产品闭环。
+                  </h2>
+                </div>
+                <a
+                  href="#"
+                  class="btn-primary relative overflow-hidden shrink-0"
+                  style="padding: 14px 28px; font-size: var(--text-sm)"
+                >
+                  <span
+                    style="
+                      position: relative;
+                      z-index: 1;
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                    "
+                  >
+                    进入创建页
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </span>
+                </a>
+              </div>
+
+              <!-- Future features -->
+              <div
+                class="mt-8 grid gap-4 pt-8 sm:grid-cols-3"
+                style="border-top: 1px solid var(--glass-border)"
+              >
+                <div class="flex items-center gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="color: var(--text-muted); flex-shrink: 0"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                  <span class="truncate" style="font-size: var(--text-sm); color: var(--text-body)"
+                    >语音输入进入经历创建流程</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="color: var(--text-muted); flex-shrink: 0"
+                  >
+                    <circle cx="12" cy="8" r="6" />
+                    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+                  </svg>
+                  <span class="truncate" style="font-size: var(--text-sm); color: var(--text-body)"
+                    >结构化奖章标题、摘要和详情</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="color: var(--text-muted); flex-shrink: 0"
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+                    <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+                  </svg>
+                  <span class="truncate" style="font-size: var(--text-sm); color: var(--text-body)"
+                    >进入个人主页和社交流展示</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ Custom Styles ═══════════ -->
+      <style>
+        /* Aurora Orb Keyframes */
+        @keyframes orb-drift-1 {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(60px, 40px) scale(1.05);
+          }
+          50% {
+            transform: translate(-30px, 80px) scale(0.95);
+          }
+          75% {
+            transform: translate(-50px, -20px) scale(1.02);
+          }
+        }
+        @keyframes orb-drift-2 {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(-50px, -60px) scale(1.08);
+          }
+          50% {
+            transform: translate(40px, -30px) scale(0.92);
+          }
+          75% {
+            transform: translate(70px, 50px) scale(1.04);
+          }
+        }
+        @keyframes orb-drift-3 {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(30px, -50px) scale(0.96);
+          }
+          50% {
+            transform: translate(-60px, 20px) scale(1.06);
+          }
+          75% {
+            transform: translate(40px, 60px) scale(0.98);
+          }
+        }
+        @keyframes orb-drift-4 {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(-40px, 30px) scale(1.03);
+          }
+          50% {
+            transform: translate(50px, -40px) scale(0.97);
+          }
+          75% {
+            transform: translate(-20px, -60px) scale(1.05);
+          }
+        }
+
+        /* Glass card hover shadow enhancement */
+        .glass.transition-all:hover,
+        .glass-strong.transition-all:hover {
+          box-shadow: var(--shadow-glass-hover);
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+          .orb {
+            animation: none !important;
+          }
+          .glass,
+          .glass-strong,
+          .glass-subtle {
+            transition: none !important;
+          }
+        }
+
+        /* Hero CTA gradient border pseudo-element */
+        .btn-primary::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(
+            135deg,
+            var(--color-gold),
+            var(--color-coral),
+            var(--color-sage)
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          opacity: 0.6;
+          transition: opacity 0.3s ease;
+          pointer-events: none;
+        }
+        .btn-primary:hover::before {
+          opacity: 1;
+        }
+
+        /* Ensure image rounded corners match container */
+        .glass-strong img {
+          border-radius: calc(var(--radius-lg) - 1px);
+        }
+      </style>
+    </main>
+    <script>
+      lucide.createIcons();
+    </script>
+    <script>
+      (function () {
+        var toggle = document.getElementById("themeToggle");
+        if (!toggle) return;
+
+        function getPreferredTheme() {
+          var saved = localStorage.getItem("earth-theme");
+          if (saved) return saved;
+          return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches
+            ? "light"
+            : "dark";
+        }
+
+        function applyTheme(theme) {
+          var html = document.documentElement;
+          if (theme === "light") {
+            html.classList.add("light");
+            html.classList.remove("dark");
+          } else {
+            html.classList.add("dark");
+            html.classList.remove("light");
+          }
+        }
+
+        // Initialize theme
+        applyTheme(getPreferredTheme());
+
+        toggle.addEventListener("click", function () {
+          var current = document.documentElement.classList.contains("light") ? "light" : "dark";
+          var next = current === "light" ? "dark" : "light";
+          applyTheme(next);
+          localStorage.setItem("earth-theme", next);
+        });
+      })();
+    </script>
+  </body>
+</html>

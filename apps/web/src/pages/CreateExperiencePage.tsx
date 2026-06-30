@@ -23,11 +23,14 @@ import {
   generateSummary,
   type ConversationSummary,
 } from "@/features/agent/conversationApi";
-import { generateMedal as generateMedalApi } from "@/features/medals/medalApi";
-import { createMockMedalDraft } from "@/features/medals/medalGenerator";
+import {
+  generateMedal as generateMedalApi,
+  updateMedal as updateMedalApi,
+} from "@/features/medals/medalApi";
 import { useAgentRuntimeConfigStore } from "@/features/agent/runtimeConfig";
-import { type MedalDraft, type MedalVisibility, useMedalStore } from "@/features/medals/medalStore";
-import type { Experience } from "@earth-online/shared";
+import type { Experience, Medal } from "@earth-online/shared";
+
+type MedalVisibility = "public" | "friends" | "private";
 
 interface ChatMessage {
   id: string;
@@ -74,7 +77,8 @@ export default function CreateExperiencePage() {
   const [isGeneratingMedal, setIsGeneratingMedal] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [medalDraft, setMedalDraft] = useState<MedalDraft | null>(null);
+  const [generatedMedal, setGeneratedMedal] = useState<Medal | null>(null);
+  const [medalVisibility, setMedalVisibility] = useState<MedalVisibility>("public");
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
 
   // Backend state
@@ -82,7 +86,6 @@ export default function CreateExperiencePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const runtimeConfig = useAgentRuntimeConfigStore();
-  const addMedal = useMedalStore((state) => state.addMedal);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiUrl, setApiUrl] = useState(runtimeConfig.apiUrl);
   const [apiKey, setApiKey] = useState(runtimeConfig.apiKey);
@@ -229,58 +232,42 @@ export default function CreateExperiencePage() {
 
   const handleGenerateMedal = async () => {
     if (!canGenerateMedal || isGeneratingMedal) return;
+    if (!experience || !sessionId) return;
 
     setError(null);
     setIsGeneratingMedal(true);
 
     try {
-      if (experience && sessionId) {
-        // Call Go API to generate medal via Agent service
-        const medal = await generateMedalApi(experience.id, sessionId);
-
-        // Convert API medal to draft format for preview
-        const draft: MedalDraft = {
-          title: medal.title,
-          summary: medal.short_reason,
-          detail: medal.short_reason,
-          tags: [medal.memory_weight],
-          visibility: medal.visibility as MedalVisibility,
-          source: "agent",
-        };
-        setMedalDraft(draft);
-      } else {
-        // Fallback to mock if no session yet
-        const transcriptMessages = messages
-          .filter((item) => item.id !== "agent-welcome")
-          .map((item) => ({ role: item.role, content: item.content }));
-        const draft = createMockMedalDraft(transcriptMessages);
-        setMedalDraft(draft);
-      }
+      // Call Go API → Agent service to generate and persist the medal
+      const medal = await generateMedalApi(experience.id, sessionId);
+      setGeneratedMedal(medal);
+      setMedalVisibility(medal.visibility as MedalVisibility);
     } catch (err) {
-      // Fallback to mock on error
-      const transcriptMessages = messages
-        .filter((item) => item.id !== "agent-welcome")
-        .map((item) => ({ role: item.role, content: item.content }));
-      const fallbackDraft = createMockMedalDraft(transcriptMessages);
-      setMedalDraft(fallbackDraft);
-      setError(
-        err instanceof Error
-          ? `Agent 奖章生成失败，已用本地规则生成预览：${err.message}`
-          : "Agent 奖章生成失败，已用本地规则生成预览",
-      );
+      setError(err instanceof Error ? `奖章生成失败：${err.message}` : "奖章生成失败，请稍后再试");
     } finally {
       setIsGeneratingMedal(false);
     }
   };
 
   const handleVisibilityChange = (visibility: MedalVisibility) => {
-    setMedalDraft((current) => (current ? { ...current, visibility } : current));
+    setMedalVisibility(visibility);
   };
 
-  const handleSaveMedal = () => {
-    if (!medalDraft) return;
-    const savedMedal = addMedal(medalDraft);
-    navigate(`/medals/${savedMedal.id}`);
+  const handleSaveMedal = async () => {
+    if (!generatedMedal) return;
+
+    // If user changed visibility, update it via API
+    if (medalVisibility !== generatedMedal.visibility) {
+      try {
+        await updateMedalApi(generatedMedal.id, {
+          visibility: medalVisibility,
+        });
+      } catch {
+        // Non-fatal: navigate to medal detail anyway
+      }
+    }
+
+    navigate(`/medals/${generatedMedal.id}`);
   };
 
   return (
@@ -458,7 +445,7 @@ export default function CreateExperiencePage() {
       )}
 
       {/* 奖章预览 */}
-      {medalDraft && (
+      {generatedMedal && (
         <div className="glass-card mb-4 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
             <div className="flex flex-1 gap-4">
@@ -470,19 +457,18 @@ export default function CreateExperiencePage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold">{medalDraft.title}</h2>
+                  <h2 className="text-lg font-semibold">{generatedMedal.title}</h2>
                   <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-muted-foreground">
-                    {medalDraft.source === "agent" ? "Agent 生成" : "本地生成"}
+                    Agent 生成
                   </span>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{medalDraft.summary}</p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{medalDraft.detail}</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {generatedMedal.short_reason}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {medalDraft.tags.map((tag) => (
-                    <span key={tag} className="glass-subtle rounded-full px-2 py-0.5 text-xs">
-                      {tag}
-                    </span>
-                  ))}
+                  <span className="glass-subtle rounded-full px-2 py-0.5 text-xs">
+                    {generatedMedal.memory_weight}
+                  </span>
                 </div>
               </div>
             </div>
@@ -491,7 +477,7 @@ export default function CreateExperiencePage() {
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
-                  variant={medalDraft.visibility === "public" ? "default" : "outline"}
+                  variant={medalVisibility === "public" ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleVisibilityChange("public")}
                 >
@@ -500,7 +486,7 @@ export default function CreateExperiencePage() {
                 </Button>
                 <Button
                   type="button"
-                  variant={medalDraft.visibility === "private" ? "default" : "outline"}
+                  variant={medalVisibility === "private" ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleVisibilityChange("private")}
                 >

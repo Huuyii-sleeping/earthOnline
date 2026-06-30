@@ -440,11 +440,25 @@ func (h *ConversationHandler) GenerateSummary(c *gin.Context) {
 		return
 	}
 
+	// Parse request body for agent_runtime
+	var req dto.SummaryRequest
+	_ = c.ShouldBindJSON(&req)
+
 	// Call Agent service for summary
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 	defer cancel()
 
-	rawSummary, err := h.agentClient.GenerateSummary(ctx, sessionID)
+	var runtime *agent.AgentRuntimePayload
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		runtime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
+	rawSummary, err := h.agentClient.GenerateSummary(ctx, sessionID, runtime)
 	if err != nil {
 		h.logger.Error("agent summary failed", "error", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("agent summary failed: %v", err)})

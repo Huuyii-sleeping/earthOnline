@@ -49,7 +49,8 @@ type MessageResponse struct {
 // --- Summary ---
 
 type SummaryRequest struct {
-	SessionID string `json:"session_id" binding:"required"`
+	SessionID    string              `json:"session_id" binding:"required"`
+	AgentRuntime *AgentRuntimeConfig `json:"agent_runtime" binding:"omitempty"`
 }
 
 type SummaryResponse struct {

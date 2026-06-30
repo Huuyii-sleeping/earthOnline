@@ -43,9 +43,10 @@ func NewService(db *gorm.DB, agentClient *agent.Client, logger *slog.Logger) *Se
 }
 
 type GenerateInput struct {
-	UserID  string
-	Year    int
-	Trigger string // "manual" | "scheduled" | "year_end"
+	UserID       string
+	Year         int
+	Trigger      string // "manual" | "scheduled" | "year_end"
+	AgentRuntime *agent.AgentRuntimePayload
 }
 
 // Generate produces an annual review for the given user and year. It is
@@ -102,6 +103,7 @@ func (s *Service) Generate(ctx context.Context, in GenerateInput) (*database.Ann
 			ExperienceCount:   experienceCount,
 			StageSummaryCount: len(stages),
 		},
+		AgentRuntime: in.AgentRuntime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("agent year review: %w", err)

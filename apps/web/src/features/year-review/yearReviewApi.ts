@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { useAgentRuntimeConfigStore } from "@/features/agent/runtimeConfig";
 
 // --- Annual review (年度回顾 M9) ---
 
@@ -72,8 +73,19 @@ export async function getAnnualReview(year: number): Promise<AnnualReview> {
 
 /** POST /annual-reviews/generate — 手动生成年度回顾 */
 export async function generateAnnualReview(year: number): Promise<AnnualReview> {
+  const agentConfig = useAgentRuntimeConfigStore.getState();
+  const agentRuntime = agentConfig.isConfigured
+    ? {
+        api_url: agentConfig.apiUrl,
+        api_key: agentConfig.apiKey,
+        model: agentConfig.model,
+        system_prompt: agentConfig.systemPrompt,
+      }
+    : undefined;
+
   const res = await apiClient.post<{ data: AnnualReview }>(`/annual-reviews/generate`, {
     year,
+    agent_runtime: agentRuntime,
   });
   return res.data.data;
 }

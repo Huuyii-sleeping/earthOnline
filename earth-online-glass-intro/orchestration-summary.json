@@ -1,0 +1,115 @@
+{
+  "project": {
+    "name": "EarthOnline 玻璃质感产品介绍页",
+    "path": "/Users/huayi/Workspace/earthOnline/earth-online-glass-intro",
+    "operation": "create",
+    "deviceType": "desktop",
+    "language": "zh-CN",
+    "dashboardMode": false,
+    "replicationMode": null,
+    "sourceUrl": null,
+    "visualSpecExcerpt": null,
+    "styleDefinitionBrief": "Dark glassmorphism landing page — animated aurora orbs (sage/coral/gold/blue) behind frosted glass cards, restrained glass on navbar + hero CTA + feature cards, premium depth through layered transparency",
+    "designRead": "AI experience product landing / everyday users seeking meaning / warm-cool glassmorphism on dark / medium-low density / avoid neon sci-fi gradients",
+    "designDials": {
+      "layoutVariance": 3,
+      "motionIntensity": 3,
+      "visualDensity": 2
+    },
+    "styleContinuityAnchors": {
+      "colorSystem": {
+        "primaryColorRole": "warm-cool aurora gradient (gold-coral-sage-blue orbs on dark #0B0D17)",
+        "brandHuePolicy": "four brand hues from existing identity used as gradient orb colors, not as separate UI colors",
+        "stateColors": "semantic success/warning/error/info tokens only"
+      },
+      "shapeSystem": "radius-lg (16px) for cards/CTAs, radius-full for pills/badges, large radius for organic glass feel",
+      "typographySystem": "Inter + PingFang SC, tight tracking on display, normal on body",
+      "spacingSystem": "8px base unit, generous vertical spacing for showcase feel",
+      "componentLanguage": "glassmorphism cards with backdrop-blur, gradient border pseudo-elements, floating shadow depth",
+      "surfaceAndDepth": "glass-bg rgba(255,255,255,0.06) + backdrop-blur(40px) saturate(180%), multi-layer box-shadow, inset highlight for glass edge",
+      "imageryAndIconography": "lucide-style inline SVG icons, one hero product mockup image, CSS-only aurora orbs for ambient color",
+      "interactionTone": "subtle hover lift (translateY -1px) + shadow growth, smooth 0.2s transitions"
+    },
+    "sharedProjectShellContract": {
+      "navigationShell": "glassmorphism sticky navbar with backdrop-blur, semi-transparent bg, brand mark + nav links + CTA",
+      "primaryColorSystem": "four brand aurora hues (sage/coral/gold/blue) as ambient gradient, not as clickable color",
+      "typographySystem": "Inter + PingFang SC, 8px base unit, tight tracking on display headings",
+      "radiusScale": "sm:4px md:8px lg:16px xl:24px full:9999px",
+      "surfaceDepthModel": "glass-blur system with 3 tiers: subtle/standard/strong",
+      "ctaStyle": "glass button with backdrop-blur, bright border, hover lift effect",
+      "alignmentRules": "centered hero, grid feature cards, max-w-6xl container"
+    },
+    "generationTree": {
+      "root": {
+        "nodeId": "gen-project-shell",
+        "kind": "project-shell",
+        "pageIds": ["page-product-intro"],
+        "output": "partials/project-shell.html",
+        "sharedRegions": ["header-nav", "global-bg", "footer"],
+        "privateRegions": [],
+        "mutableSlots": ["pageTitle"],
+        "status": "planned",
+        "children": [
+          {
+            "nodeId": "gen-page-intro",
+            "kind": "page-leaf",
+            "pageIds": ["page-product-intro"],
+            "output": "pages/product-intro.html",
+            "sharedRegions": ["header-nav", "global-bg", "footer"],
+            "privateRegions": [
+              "hero-section",
+              "process-section",
+              "features-section",
+              "cta-section"
+            ],
+            "mutableSlots": ["pageTitle"],
+            "status": "planned",
+            "children": []
+          }
+        ]
+      }
+    }
+  },
+  "designSource": {
+    "operatingMode": "free-explore",
+    "libraryIdentity": null,
+    "cssFilePath": "/Users/huayi/Workspace/earthOnline/earth-online-glass-intro/colors_and_type.css",
+    "brandPrefix": "",
+    "themeMode": "dark",
+    "designDecisionSummary": "Dark glassmorphism with animated aurora orbs using existing brand colors (sage/coral/gold/blue). Glass effects applied selectively to navbar, hero CTA, and feature cards. Restraint over maximalism."
+  },
+  "pages": [
+    {
+      "nodeId": "page-product-intro",
+      "slug": "product-intro",
+      "title": "产品介绍页",
+      "htmlSrc": "pages/product-intro.html",
+      "pageIndex": 1,
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "pageType": "showcase",
+      "businessScenario": "Product landing page introducing EarthOnline experience-to-medal concept",
+      "visualNorthStar": "A dark immersive canvas with slowly drifting aurora orbs behind frosted glass panels — warm brand colors bleeding through translucent surfaces create a sense of precious memories being revealed",
+      "compositionPattern": "Full-viewport hero with centered headline + product mockup, flowing into staggered feature grid, ending with glass CTA band",
+      "continuityAnchors": [
+        "dark bg with aurora orbs",
+        "glass card treatment",
+        "brand gradient text accent"
+      ],
+      "imagePlan": ["hero-product-mockup.jpg"],
+      "chartsRequired": false
+    }
+  ],
+  "assets": [
+    {
+      "filename": "hero-product-mockup.jpg",
+      "role": "critical-hero",
+      "owningPage": "product-intro",
+      "semanticDescription": "Product UI mockup showing the conversation-to-medal flow on dark glassmorphism interface",
+      "status": "planned"
+    }
+  ],
+  "wiringPlan": [],
+  "hiddenInteractionPlan": []
+}

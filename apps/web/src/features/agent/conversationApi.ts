@@ -49,7 +49,20 @@ export interface ConversationSummary {
 }
 
 export async function generateSummary(sessionId: string): Promise<ConversationSummary> {
-  const res = await apiClient.post<{ data: ConversationSummary }>(`/sessions/${sessionId}/summary`);
+  const agentConfig = useAgentRuntimeConfigStore.getState();
+  const agentRuntime = agentConfig.isConfigured
+    ? {
+        api_url: agentConfig.apiUrl,
+        api_key: agentConfig.apiKey,
+        model: agentConfig.model,
+        system_prompt: agentConfig.systemPrompt,
+      }
+    : undefined;
+
+  const res = await apiClient.post<{ data: ConversationSummary }>(
+    `/sessions/${sessionId}/summary`,
+    { agent_runtime: agentRuntime },
+  );
   return res.data.data;
 }
 

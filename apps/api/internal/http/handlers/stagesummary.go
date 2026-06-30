@@ -10,6 +10,7 @@ import (
 	"github.com/earth-online/api/internal/database"
 	"github.com/earth-online/api/internal/domain/stagesummary"
 	"github.com/earth-online/api/internal/http/dto"
+	"github.com/earth-online/api/internal/integrations/agent"
 	"github.com/earth-online/api/internal/integrations/taskqueue"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -58,12 +59,24 @@ func (h *StageSummaryHandler) GenerateStageSummary(c *gin.Context) {
 	period := stagesummary.PeriodType(req.PeriodType)
 	start, end := stagesummary.PeriodBounds(period, ref)
 
+	// Forward browser-side LLM credentials if provided.
+	var runtime *agent.AgentRuntimePayload
+	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
+		runtime = &agent.AgentRuntimePayload{
+			APIURL:       req.AgentRuntime.APIURL,
+			APIKey:       req.AgentRuntime.APIKey,
+			Model:        req.AgentRuntime.Model,
+			SystemPrompt: req.AgentRuntime.SystemPrompt,
+		}
+	}
+
 	summary, err := h.service.Generate(c.Request.Context(), stagesummary.GenerateInput{
-		UserID:      viewerID,
-		Period:      period,
-		PeriodStart: start,
-		PeriodEnd:   end,
-		Trigger:     "manual",
+		UserID:       viewerID,
+		Period:       period,
+		PeriodStart:  start,
+		PeriodEnd:    end,
+		Trigger:      "manual",
+		AgentRuntime: runtime,
 	})
 	if err != nil {
 		if errors.Is(err, stagesummary.ErrNoExperiences) {
