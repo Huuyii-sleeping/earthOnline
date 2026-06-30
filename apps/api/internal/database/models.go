@@ -9,7 +9,7 @@ import (
 
 // Base model with common fields
 type Base struct {
-	ID        string    `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID        string    `gorm:"type:uuid;primaryKey;default:(uuid_generate_v4())" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -144,9 +144,9 @@ func (MedalVisibility) TableName() string { return "medal_visibility" }
 // MedalInteraction
 type MedalInteraction struct {
 	Base
-	MedalID string `gorm:"type:uuid;not null;index" json:"medal_id"`
-	UserID  string `gorm:"type:uuid;not null;index" json:"user_id"`
-	Type    string `gorm:"type:varchar(50);not null" json:"type"`
+	MedalID string `gorm:"type:uuid;not null;index;uniqueIndex:idx_interaction" json:"medal_id"`
+	UserID  string `gorm:"type:uuid;not null;index;uniqueIndex:idx_interaction" json:"user_id"`
+	Type    string `gorm:"type:varchar(50);not null;uniqueIndex:idx_interaction" json:"type"`
 }
 
 func (MedalInteraction) TableName() string { return "medal_interactions" }

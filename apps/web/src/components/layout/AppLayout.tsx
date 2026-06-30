@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Bell, Bot, Home, LogOut, Menu, PlusCircle, User, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/useAuth";
+import { getUnreadCount } from "@/features/notifications/notificationApi";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -17,6 +19,14 @@ export default function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { nickname, logout } = useAuth();
   const navigate = useNavigate();
+
+  // 未读通知数，用于在导航上显示红点。每 60s 轮询一次。
+  const unreadQuery = useQuery({
+    queryKey: ["notifications-unread"],
+    queryFn: getUnreadCount,
+    refetchInterval: 60_000,
+  });
+  const unread = unreadQuery.data ?? 0;
 
   const handleLogout = () => {
     logout();
@@ -50,7 +60,14 @@ export default function AppLayout() {
                   )
                 }
               >
-                <item.icon className="h-4 w-4" />
+                <span className="relative">
+                  <item.icon className="h-4 w-4" />
+                  {item.to === "/notifications" && unread > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </span>
                 {item.label}
               </NavLink>
             ))}
@@ -94,7 +111,14 @@ export default function AppLayout() {
                     )
                   }
                 >
-                  <item.icon className="h-4 w-4" />
+                  <span className="relative">
+                    <item.icon className="h-4 w-4" />
+                    {item.to === "/notifications" && unread > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                        {unread > 99 ? "99+" : unread}
+                      </span>
+                    )}
+                  </span>
                   {item.label}
                 </NavLink>
               ))}

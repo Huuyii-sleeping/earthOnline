@@ -247,3 +247,71 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
 }
+
+// --- Social (M6) ---
+
+// 轻互动计数与当前用户已互动类型
+export interface InteractionCountResponse {
+  medal_id: string;
+  counts: Partial<Record<InteractionType, number>>;
+  viewer: InteractionType[];
+}
+
+// 用户摘要卡片（关注/好友列表）
+export interface UserSummary {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+// 关注关系状态
+export interface FollowStatusResponse {
+  user_id: string;
+  following: boolean;
+  follower_count: number;
+  following_count: number;
+}
+
+// 好友申请记录
+export interface FriendRequestResponse {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendListItem {
+  friendship: FriendRequestResponse;
+  user: UserSummary;
+}
+
+// 社交流卡片
+export interface FeedItem {
+  medal_id: string;
+  title: string;
+  short_reason: string;
+  memory_weight: MemoryWeight;
+  image_url: string | null;
+  created_at: string;
+  author: UserSummary;
+  counts: Partial<Record<InteractionType, number>>;
+  viewer_reactions: InteractionType[];
+  viewer_following: boolean;
+}
+
+export type FeedTab = "latest" | "following" | "popular" | "similar" | "for-you";
+
+// 通知记录（API 响应版，data 为已解析对象）
+export interface NotificationResponse {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+}

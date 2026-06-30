@@ -44,6 +44,9 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	medalHandler := handlers.NewMedalHandler(db, agentClient, logger)
 	assetHandler := handlers.NewAssetHandler(db, minioClient, logger)
 	profileHandler := handlers.NewProfileHandler(db, logger)
+	socialHandler := handlers.NewSocialHandler(db, logger)
+	feedHandler := handlers.NewFeedHandler(db, logger)
+	notificationHandler := handlers.NewNotificationHandler(db, logger)
 
 	api := r.Group("/api/v1")
 
@@ -100,5 +103,28 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.POST("/assets/presign", assetHandler.PresignUpload)
 		authRequired.POST("/assets", assetHandler.CreateAsset)
 		authRequired.GET("/assets/:id", assetHandler.GetAsset)
+
+		// Social — interactions (M6.1)
+		authRequired.POST("/medals/:id/interactions", socialHandler.CreateInteraction)
+		authRequired.DELETE("/medals/:id/interactions/:type", socialHandler.DeleteInteraction)
+
+		// Social — follows / friends (M6.2)
+		authRequired.POST("/users/:id/follow", socialHandler.FollowUser)
+		authRequired.DELETE("/users/:id/follow", socialHandler.UnfollowUser)
+		authRequired.GET("/me/following", socialHandler.ListFollowing)
+		authRequired.GET("/me/followers", socialHandler.ListFollowers)
+		authRequired.POST("/friends/:id/request", socialHandler.RequestFriend)
+		authRequired.POST("/friends/:id/accept", socialHandler.AcceptFriend)
+		authRequired.POST("/friends/:id/reject", socialHandler.RejectFriend)
+		authRequired.GET("/me/friends", socialHandler.ListFriends)
+
+		// Feed (M6.3)
+		authRequired.GET("/feed", feedHandler.GetFeed)
+
+		// Notifications (M6.4)
+		authRequired.GET("/notifications", notificationHandler.ListNotifications)
+		authRequired.GET("/notifications/unread-count", notificationHandler.UnreadCount)
+		authRequired.POST("/notifications/:id/read", notificationHandler.MarkRead)
+		authRequired.POST("/notifications/read-all", notificationHandler.MarkAllRead)
 	}
 }

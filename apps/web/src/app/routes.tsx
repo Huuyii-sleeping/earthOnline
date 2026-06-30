@@ -7,6 +7,7 @@ import ProductIntroPage from "@/pages/ProductIntroPage";
 import CreateExperiencePage from "@/pages/CreateExperiencePage";
 import MedalDetailPage from "@/pages/MedalDetailPage";
 import ProfilePage from "@/pages/ProfilePage";
+import UserProfilePage from "@/pages/UserProfilePage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import AgentSettingsPage from "@/pages/AgentSettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
@@ -60,6 +61,7 @@ export function AppRoutes() {
         <Route path="/create" element={<CreateExperiencePage />} />
         <Route path="/medals/:id" element={<MedalDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/users/:id" element={<UserProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings/agent" element={<AgentSettingsPage />} />
       </Route>

@@ -5,6 +5,7 @@ import { Award, Clock, Grid, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMyMedals, getMyProfile } from "@/features/profile/profileApi";
+import { listFollowers, listFollowing } from "@/features/social/socialApi";
 import type { MedalWithVersion } from "@earth-online/shared";
 
 const memoryWeightLabels: Record<string, string> = {
@@ -38,19 +39,26 @@ export default function ProfilePage() {
     queryKey: ["my-medals"],
     queryFn: getMyMedals,
   });
+  const followingQuery = useQuery({
+    queryKey: ["my-following"],
+    queryFn: listFollowing,
+  });
+  const followersQuery = useQuery({
+    queryKey: ["my-followers"],
+    queryFn: listFollowers,
+  });
 
   const profile = profileQuery.data;
   const medals = medalsQuery.data ?? [];
+  const followingCount = followingQuery.data?.length ?? 0;
+  const followerCount = followersQuery.data?.length ?? 0;
 
   // 时间线按获得时间倒序排列。依赖 React Query 返回的稳定引用，避免每次渲染重排。
   const timelineMedals = useMemo(
     () =>
       (medalsQuery.data ?? [])
         .slice()
-        .sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        ),
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [medalsQuery.data],
   );
 
@@ -75,17 +83,21 @@ export default function ProfilePage() {
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold">
-                {profile?.nickname ?? "个人主页"}
-              </h1>
+              <h1 className="text-xl font-semibold">{profile?.nickname ?? "个人主页"}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {profile?.bio ?? "这个人还没有留下简介"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {profile
-                  ? `已收藏 ${profile.medal_count} 枚经历奖章`
-                  : "加载中…"}
+                {profile ? `已收藏 ${profile.medal_count} 枚经历奖章` : "加载中…"}
               </p>
+              <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
+                <span>
+                  <span className="font-semibold text-foreground">{followingCount}</span> 关注
+                </span>
+                <span>
+                  <span className="font-semibold text-foreground">{followerCount}</span> 粉丝
+                </span>
+              </div>
             </div>
           </div>
           <Button asChild>
@@ -191,9 +203,7 @@ function MedalTimelineRow({ medal }: { medal: MedalWithVersion }) {
             {visibilityLabel(medal.visibility)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatDate(medal.created_at)}
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{formatDate(medal.created_at)}</p>
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
           {medal.short_reason}
         </p>

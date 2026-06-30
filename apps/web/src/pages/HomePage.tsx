@@ -1,26 +1,35 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Award, Eye, Inbox, PlusCircle } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Inbox, Loader2, PlusCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMedalStore } from "@/features/medals/medalStore";
+import type { FeedTab } from "@earth-online/shared";
+import { getFeed } from "@/features/feed/feedApi";
+import FeedCard from "@/features/feed/FeedCard";
 
-const feedTabs = [
+const feedTabs: { value: FeedTab; label: string }[] = [
   { value: "following", label: "关注" },
   { value: "latest", label: "最新" },
-  { value: "hot", label: "热门" },
+  { value: "popular", label: "热门" },
   { value: "similar", label: "相似" },
-  { value: "recommend", label: "为你推荐" },
+  { value: "for-you", label: "为你推荐" },
 ];
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const publicMedals = useMedalStore((state) =>
-    state.medals.filter((medal) => medal.visibility === "public"),
-  );
+  const [activeTab, setActiveTab] = useState<FeedTab>("latest");
+
+  const feedQuery = useQuery({
+    queryKey: ["feed", activeTab],
+    queryFn: () => getFeed(activeTab),
+  });
+
+  const items = feedQuery.data?.data ?? [];
 
   return (
     <div className="relative pb-20">
-      <Tabs defaultValue="latest" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FeedTab)} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
           {feedTabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
@@ -31,47 +40,25 @@ export default function HomePage() {
 
         {feedTabs.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            {publicMedals.length > 0 ? (
+            {feedQuery.isLoading ? (
+              <LoadingState />
+            ) : feedQuery.error ? (
+              <EmptyState title="加载失败" hint="社交流暂时无法加载，请稍后重试" />
+            ) : items.length > 0 ? (
               <div className="grid gap-4 py-4 md:grid-cols-2">
-                {publicMedals.map((medal) => (
-                  <Link
-                    key={`${tab.value}-${medal.id}`}
-                    to={`/medals/${medal.id}`}
-                    className="rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
-                        <Award className="h-7 w-7" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h2 className="font-semibold">{medal.title}</h2>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            <Eye className="h-3 w-3" />
-                            公开
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {medal.summary}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {medal.tags.map((tag) => (
-                            <span key={tag} className="rounded-full border px-2 py-0.5 text-xs">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
+                {items.map((item) => (
+                  <FeedCard key={`${tab.value}-${item.medal_id}`} item={item} />
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                <Inbox className="h-12 w-12" />
-                <p className="mt-4 text-lg font-medium">暂无内容</p>
-                <p className="mt-1 text-sm">创建并公开你的第一枚经历奖章</p>
-              </div>
+              <EmptyState
+                title="暂无内容"
+                hint={
+                  tab.value === "following"
+                    ? "关注一些用户后，他们公开的奖章会出现在这里"
+                    : "创建并公开你的第一枚经历奖章"
+                }
+              />
             )}
           </TabsContent>
         ))}
@@ -84,6 +71,24 @@ export default function HomePage() {
       >
         <PlusCircle className="h-6 w-6" />
       </Button>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+function EmptyState({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+      <Inbox className="h-12 w-12" />
+      <p className="mt-4 text-lg font-medium">{title}</p>
+      <p className="mt-1 text-sm">{hint}</p>
     </div>
   );
 }
