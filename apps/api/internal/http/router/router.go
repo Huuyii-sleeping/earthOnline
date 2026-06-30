@@ -30,7 +30,11 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	agentClient := agent.NewClient(cfg.AgentServiceURL, logger)
 
 	// MinIO client
-	minioClient := storage.NewMinIOClient(cfg.S3Endpoint, cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.S3Bucket, logger)
+	minioClient, err := storage.NewMinIOClient(cfg.S3Endpoint, cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.S3Bucket, logger)
+	if err != nil {
+		logger.Error("failed to initialize minio client", "error", err)
+		os.Exit(1)
+	}
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(db, redisClient, cfg, logger)

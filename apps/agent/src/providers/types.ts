@@ -1,5 +1,3 @@
-import type { BaseMessage } from "@langchain/core/messages";
-
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;

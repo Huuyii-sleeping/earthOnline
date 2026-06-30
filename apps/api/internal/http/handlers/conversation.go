@@ -18,9 +18,9 @@ import (
 )
 
 type ConversationHandler struct {
-	db           *gorm.DB
-	logger       *slog.Logger
-	agentClient  *agent.Client
+	db          *gorm.DB
+	logger      *slog.Logger
+	agentClient *agent.Client
 }
 
 func NewConversationHandler(db *gorm.DB, agentClient *agent.Client, logger *slog.Logger) *ConversationHandler {
@@ -174,9 +174,9 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		// Still return the user message, agent reply will be empty
 		c.JSON(http.StatusOK, gin.H{
 			"data": gin.H{
-				"user_message":   h.toMessageResponse(&userMsg),
-				"agent_message":  nil,
-				"error":          "agent service unavailable",
+				"user_message":  h.toMessageResponse(&userMsg),
+				"agent_message": nil,
+				"error":         "agent service unavailable",
 			},
 		})
 		return
@@ -197,8 +197,8 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
-			"user_message":   h.toMessageResponse(&userMsg),
-			"agent_message":  h.toMessageResponse(&agentMsg),
+			"user_message":  h.toMessageResponse(&userMsg),
+			"agent_message": h.toMessageResponse(&agentMsg),
 		},
 	})
 }
@@ -237,7 +237,7 @@ func (h *ConversationHandler) StreamSession(c *gin.Context) {
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.WriteHeader(http.StatusOK)
 
-	flusher, _ := c.Writer.Writer.(interface{ Flush() })
+	flusher, _ := c.Writer.(http.Flusher)
 	buf := make([]byte, 4096)
 	for {
 		n, err := body.Read(buf)

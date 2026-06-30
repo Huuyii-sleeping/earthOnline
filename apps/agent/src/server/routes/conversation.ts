@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { processConversation, generateConversationSummary } from "../../graphs/conversation.graph.js";
+import {
+  processConversation,
+  generateConversationSummary,
+} from "../../graphs/conversation.graph.js";
 import { getLLMProvider } from "../../providers/index.js";
 import { checkSafety } from "../../safety/index.js";
 
@@ -22,6 +25,19 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const history = body.history || [];
 
+    // Safety review before processing — short-circuit with a safe response
+    // when the user message contains self-harm or violence signals.
+    const safety = checkSafety(body.content);
+    if (!safety.safe) {
+      request.log.warn({ reason: safety.reason }, "safety check triggered");
+      return {
+        reply: safety.safeResponse,
+        done: false,
+        session_id: sessionId,
+        safety_triggered: true,
+      };
+    }
+
     try {
       const result = await processConversation(history, body.content);
       return {
@@ -41,7 +57,6 @@ export async function conversationRoutes(app: FastifyInstance) {
 
   // Generate pre-generation summary
   app.post("/sessions/:sessionId/summary", async (request, reply) => {
-    const { sessionId } = request.params as { sessionId: string };
     const body = request.body as { history?: { role: "user" | "assistant"; content: string }[] };
 
     const history = body?.history || [];
