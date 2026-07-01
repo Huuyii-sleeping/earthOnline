@@ -44,39 +44,27 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async chat(messages: ChatMessage[]): Promise<LLMResponse> {
-    const lcMessages = this.toLangChainMessages(messages);
-    try {
-      const result = await this.model.invoke(lcMessages);
-      return {
-        content: result.content.toString(),
-      };
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      // Some OpenAI-compatible APIs (e.g. Zhipu/GLM, Aliyun DashScope) close
-      // the HTTP connection prematurely on non-streaming calls, causing
-      // "Premature close" / ERR_STREAM_PREMATURE_CLOSE even though the full
-      // response was generated server-side. Fall back to streaming mode,
-      // which is more robust with these APIs.
-      if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
-        let content = "";
-        for await (const token of this.stream(messages)) {
-          content += token;
-        }
-        return { content };
-      }
-      throw err;
+    // Always use streaming internally, even for non-streaming callers.
+    // Some OpenAI-compatible APIs (e.g. Zhipu/GLM, Aliyun DashScope) are
+    // unreliable with non-streaming invoke — they either return "Premature
+    // close" or hang indefinitely. Streaming mode is consistently reliable
+    // with these APIs, so we collect all tokens and return the full string.
+    let content = "";
+    for await (const token of this.stream(messages)) {
+      content += token;
     }
+    return { content };
   }
 
   async *stream(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
     // Create a streaming-enabled instance for this call only.
-    // We can't reuse the main model because it has streaming: false.
     const lcMessages = this.toLangChainMessages(messages);
     const streamConfig: ConstructorParameters<typeof ChatOpenAI>[0] = {
       openAIApiKey: this.savedApiKey,
       modelName: this.savedModelName,
       temperature: 0.8,
       streaming: true,
+      timeout: 90000, // 90s timeout for the initial HTTP response
     };
     if (this.savedApiBase) {
       streamConfig!.configuration = { baseURL: this.savedApiBase };
@@ -92,13 +80,11 @@ export class OpenAIProvider implements LLMProvider {
         }
       }
     } catch (err) {
-      // Some OpenAI-compatible APIs (e.g. Aliyun DashScope) close the SSE
-      // connection in a way that triggers "Premature close" / ERR_STREAM_PREMATURE_CLOSE
-      // in node-fetch after all tokens have been received. Since we've already
-      // yielded all tokens, we can safely ignore this error.
       const errorMsg = err instanceof Error ? err.message : String(err);
+      // Some OpenAI-compatible APIs close the SSE connection in a way that
+      // triggers "Premature close" / ERR_STREAM_PREMATURE_CLOSE after all
+      // tokens have been received. Safe to ignore.
       if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
-        // Tokens already yielded; just end the generator gracefully.
         return;
       }
       throw err;
