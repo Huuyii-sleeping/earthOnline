@@ -266,6 +266,7 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 	agentReq := &agent.SendMessageRequest{
 		SessionID: sessionID,
 		Content:   req.Content,
+		UserID:    userID.(string),
 	}
 
 	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
