@@ -182,9 +182,13 @@ export async function conversationRoutes(app: FastifyInstance) {
       let hadToolCalls = false;
       let clientDisconnected = false;
 
-      // Detect client disconnect to stop wasting LLM calls
-      request.raw.on("close", () => {
-        clientDisconnected = true;
+      // Detect client disconnect via the RESPONSE stream (reply.raw),
+      // NOT request.raw — the request "close" event fires as soon as the
+      // POST body is fully read, which is almost immediate.
+      reply.raw.on("close", () => {
+        if (!reply.raw.writableEnded) {
+          clientDisconnected = true;
+        }
       });
 
       for await (const chunk of runReActLoopStream(
@@ -229,8 +233,25 @@ export async function conversationRoutes(app: FastifyInstance) {
         }
       }
     } catch (error) {
-      request.log.error(error, "streaming conversation failed");
-      writeSSE(reply.raw, { error: "conversation streaming failed", done: true });
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("[streaming] conversation failed:", errMsg);
+
+      // Send a user-friendly error message via SSE so the frontend can
+      // display it instead of spinning forever.
+      let userFacingError = "对话服务暂时不可用，请稍后再试。";
+      if (
+        errMsg.includes("401") ||
+        errMsg.includes("AuthenticationError") ||
+        errMsg.includes("令牌已过期")
+      ) {
+        userFacingError = "API Key 无效或已过期，请在 Agent 设置页检查配置。";
+      } else if (errMsg.includes("429") || errMsg.includes("RateError")) {
+        userFacingError = "请求过于频繁，请稍后再试。";
+      } else if (errMsg.includes("No LLM provider configured")) {
+        userFacingError = "未配置 API Key，请先在 Agent 设置页配置。";
+      }
+
+      writeSSE(reply.raw, { error: userFacingError, done: true });
     }
 
     reply.raw.end();
