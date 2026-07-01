@@ -1,5 +1,6 @@
-import { getAccessToken } from "@/lib/auth/token";
+import { getAccessToken, getRefreshToken, setTokens } from "@/lib/auth/token";
 import { useAgentRuntimeConfigStore } from "./runtimeConfig";
+import axios from "axios";
 import { apiClient } from "@/lib/api/client";
 import type { Experience, ConversationSession, ConversationMessage } from "@earth-online/shared";
 
@@ -78,6 +79,27 @@ export interface StreamCallbacks {
 }
 
 /**
+ * Refresh the access token using the refresh token.
+ * Returns the new access token, or null if refresh failed.
+ */
+async function tryRefreshToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  try {
+    const res = await axios.post<{ data: { access_token: string; refresh_token: string } }>(
+      "/api/v1/auth/refresh",
+      { refresh_token: refreshToken },
+    );
+    const { access_token, refresh_token } = res.data.data;
+    setTokens(access_token, refresh_token);
+    return access_token;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Send a message and stream the agent's reply token by token via SSE.
  * Returns an AbortController so the caller can cancel the stream.
  */
@@ -90,7 +112,7 @@ export function sendMessageStream(
 
   (async () => {
     try {
-      const token = getAccessToken();
+      let token = getAccessToken();
       const agentConfig = useAgentRuntimeConfigStore.getState();
       const agentRuntime = agentConfig.isConfigured
         ? {
@@ -101,7 +123,7 @@ export function sendMessageStream(
           }
         : undefined;
 
-      const response = await fetch(`/api/v1/sessions/${sessionId}/messages/stream`, {
+      let response = await fetch(`/api/v1/sessions/${sessionId}/messages/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -114,6 +136,27 @@ export function sendMessageStream(
         }),
         signal: controller.signal,
       });
+
+      // If access token expired, try refreshing once and retry
+      if (response.status === 401) {
+        const newToken = await tryRefreshToken();
+        if (newToken) {
+          token = newToken;
+          response = await fetch(`/api/v1/sessions/${sessionId}/messages/stream`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+              Accept: "text/event-stream",
+            },
+            body: JSON.stringify({
+              content,
+              agent_runtime: agentRuntime,
+            }),
+            signal: controller.signal,
+          });
+        }
+      }
 
       if (!response.ok) {
         const errText = await response.text().catch(() => "");
