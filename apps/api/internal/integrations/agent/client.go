@@ -228,8 +228,10 @@ func (c *Client) RegenerateMeaning(ctx context.Context, req *GenerateMedalReques
 }
 
 // GenerateSummary asks the Agent to produce a pre-generation summary of the conversation.
-func (c *Client) GenerateSummary(ctx context.Context, sessionID string, runtime *AgentRuntimePayload) (json.RawMessage, error) {
-	payload := map[string]interface{}{}
+func (c *Client) GenerateSummary(ctx context.Context, sessionID string, history []HistoryItem, runtime *AgentRuntimePayload) (json.RawMessage, error) {
+	payload := map[string]interface{}{
+		"history": history,
+	}
 	if runtime != nil {
 		payload["agent_runtime"] = runtime
 	}

@@ -444,6 +444,23 @@ func (h *ConversationHandler) GenerateSummary(c *gin.Context) {
 	var req dto.SummaryRequest
 	_ = c.ShouldBindJSON(&req)
 
+	// Load conversation history from DB — the Agent needs this to generate
+	// a meaningful summary. Without it, the LLM has zero context.
+	var messages []database.ConversationMessage
+	if err := h.db.Where("session_id = ?", sessionID).Order("created_at ASC").Find(&messages).Error; err != nil {
+		h.logger.Error("failed to query messages for summary", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load conversation history"})
+		return
+	}
+
+	history := make([]agent.HistoryItem, 0, len(messages))
+	for _, msg := range messages {
+		history = append(history, agent.HistoryItem{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
 	// Call Agent service for summary
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
@@ -458,7 +475,7 @@ func (h *ConversationHandler) GenerateSummary(c *gin.Context) {
 		}
 	}
 
-	rawSummary, err := h.agentClient.GenerateSummary(ctx, sessionID, runtime)
+	rawSummary, err := h.agentClient.GenerateSummary(ctx, sessionID, history, runtime)
 	if err != nil {
 		h.logger.Error("agent summary failed", "error", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("agent summary failed: %v", err)})
