@@ -418,7 +418,7 @@ export default function CreateExperiencePage() {
             )}
           </div>
           <p className="text-sm leading-6">{summary.experienceSummary}</p>
-          {summary.keyMoments.length > 0 && (
+          {summary.keyMoments?.length > 0 && (
             <div className="mt-2">
               <span className="text-xs text-muted-foreground">关键情节：</span>
               {summary.keyMoments.map((moment, i) => (
@@ -428,7 +428,7 @@ export default function CreateExperiencePage() {
               ))}
             </div>
           )}
-          {summary.detectedEmotions.length > 0 && (
+          {summary.detectedEmotions?.length > 0 && (
             <div className="mt-2">
               <span className="text-xs text-muted-foreground">情绪：</span>
               {summary.detectedEmotions.map((emotion, i) => (

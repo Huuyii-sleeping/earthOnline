@@ -54,9 +54,9 @@ type SummaryRequest struct {
 }
 
 type SummaryResponse struct {
-	ExperienceSummary string   `json:"experience_summary"`
-	KeyMoments        []string `json:"key_moments"`
-	DetectedEmotions  []string `json:"detected_emotions"`
-	PossibleMeaning   string   `json:"possible_meaning"`
-	ReadyToGenerate   bool     `json:"ready_to_generate"`
+	ExperienceSummary string   `json:"experienceSummary"`
+	KeyMoments        []string `json:"keyMoments"`
+	DetectedEmotions  []string `json:"detectedEmotions"`
+	PossibleMeaning   string   `json:"possibleMeaning"`
+	ReadyToGenerate   bool     `json:"readyToGenerate"`
 }
