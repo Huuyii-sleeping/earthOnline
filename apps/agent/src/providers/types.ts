@@ -107,6 +107,24 @@ export interface LLMResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Streaming chunks (for streamWithTools)
+// ---------------------------------------------------------------------------
+
+/**
+ * A chunk emitted by `streamWithTools`. The agent loop consumes these to
+ * drive the two-phase streaming experience:
+ *
+ * - `tool_calls`: the model wants to call tools. The loop executes them,
+ *   appends results to messages, and calls `streamWithTools` again.
+ * - `token`: a text token from the final reply. Forwarded to the SSE client.
+ * - `done`: the model finished. Contains the finish reason.
+ */
+export type StreamChunk =
+  | { type: "token"; content: string }
+  | { type: "tool_calls"; tool_calls: ToolCall[] }
+  | { type: "done"; finish_reason: string };
+
+// ---------------------------------------------------------------------------
 // Provider interface
 // ---------------------------------------------------------------------------
 
@@ -126,4 +144,27 @@ export interface LLMProvider {
    * `tool`-role messages.
    */
   chatWithTools(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMResponse>;
+
+  /**
+   * Two-phase streaming with tool support.
+   *
+   * Phase 1: non-streaming `chatWithTools` to decide if tools are needed.
+   *   - If tool_calls: yield `{ type: "tool_calls" }` and return.
+   *     The caller executes tools, appends results, and calls again.
+   *   - If no tool_calls: yield `{ type: "token" }` with the full content
+   *     (saves a second LLM call) then `{ type: "done" }`.
+   *
+   * For the final reply AFTER tool execution, use `streamFinalReply` instead
+   * to get real token-by-token streaming.
+   */
+  streamWithTools(
+    messages: ChatMessage[],
+    tools: ToolDefinition[],
+  ): AsyncGenerator<StreamChunk, void, unknown>;
+
+  /**
+   * Pure streaming output — used after tool execution to stream the model's
+   * final reply token by token. No tool calling support.
+   */
+  streamFinalReply(messages: ChatMessage[]): AsyncGenerator<StreamChunk, void, unknown>;
 }

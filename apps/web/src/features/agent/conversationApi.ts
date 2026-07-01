@@ -73,6 +73,8 @@ export interface StreamCallbacks {
   onToken: (token: string) => void;
   onDone?: (data: { userMessageId: string; agentMessageId: string }) => void;
   onError?: (error: Error) => void;
+  /** Called when the agent is executing tool calls (show "thinking" indicator). */
+  onThinking?: () => void;
 }
 
 /**
@@ -143,6 +145,9 @@ export function sendMessageStream(
             if (data.error) {
               callbacks.onError?.(new Error(data.error));
               return;
+            }
+            if (data.thinking) {
+              callbacks.onThinking?.();
             }
             if (data.token) {
               callbacks.onToken(data.token);

@@ -6,7 +6,14 @@ import {
   ToolMessage,
   type BaseMessage,
 } from "@langchain/core/messages";
-import type { ChatMessage, LLMProvider, LLMResponse, ToolDefinition, ToolCall } from "./types.js";
+import type {
+  ChatMessage,
+  LLMProvider,
+  LLMResponse,
+  ToolDefinition,
+  ToolCall,
+  StreamChunk,
+} from "./types.js";
 
 /**
  * Convert our framework-agnostic ChatMessage[] into LangChain message objects.
@@ -196,5 +203,46 @@ export class OpenAIProvider implements LLMProvider {
 
       throw err;
     }
+  }
+
+  /**
+   * Two-phase streaming with tool support.
+   *
+   * Phase 1: non-streaming chatWithTools to decide if tools are needed.
+   *   - If tool_calls: yield tool_calls chunk and return.
+   *   - If no tool_calls: yield the content as a single token chunk
+   *     (saves a second LLM call), then yield done.
+   *
+   * The caller (agent loop) handles tool execution and calls streamFinalReply
+   * for the real token-by-token streaming of the final reply.
+   */
+  async *streamWithTools(
+    messages: ChatMessage[],
+    tools: ToolDefinition[],
+  ): AsyncGenerator<StreamChunk, void, unknown> {
+    const result = await this.chatWithTools(messages, tools);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      yield { type: "tool_calls", tool_calls: result.tool_calls };
+      return;
+    }
+
+    // No tool calls — yield the content directly. No need for a second
+    // streaming call; we already have the full response.
+    if (result.content) {
+      yield { type: "token", content: result.content };
+    }
+    yield { type: "done", finish_reason: result.finish_reason ?? "stop" };
+  }
+
+  /**
+   * Pure streaming output for the final reply after tool execution.
+   * Streams token by token, wrapping each in a StreamChunk.
+   */
+  async *streamFinalReply(messages: ChatMessage[]): AsyncGenerator<StreamChunk, void, unknown> {
+    for await (const token of this.stream(messages)) {
+      yield { type: "token", content: token };
+    }
+    yield { type: "done", finish_reason: "stop" };
   }
 }

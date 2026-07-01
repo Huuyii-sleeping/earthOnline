@@ -1,13 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import {
   processConversation,
-  streamConversation,
   generateConversationSummary,
 } from "../../graphs/conversation.graph.js";
 import { getLLMProvider, type AgentRuntimeConfig } from "../../providers/index.js";
 import { checkSafety } from "../../safety/index.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
 import type { ToolContext } from "../../providers/types.js";
+import { runReActLoopStream } from "../../agent/react-loop.js";
+import { getLLMProviderFromRuntime } from "../../providers/index.js";
+import { conversationFollowupPromptV1 } from "../../prompts/conversation-followup.v1.js";
 
 interface SendMessageBody {
   session_id: string;
@@ -30,6 +32,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       userId: body.user_id,
       sessionId: body.session_id,
     };
+  }
+
+  // Helper: write SSE data line.
+  function writeSSE(raw: NodeJS.WritableStream, data: unknown) {
+    raw.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
   // Non-streaming: send a message and get a reply
@@ -79,7 +86,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
   });
 
-  // Streaming: send a message and stream the reply token by token via SSE
+  // Streaming: send a message and stream the reply with two-phase tool support
   app.post("/sessions/:sessionId/messages/stream", async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
     const body = request.body as SendMessageBody;
@@ -100,8 +107,8 @@ export async function conversationRoutes(app: FastifyInstance) {
         "cache-control": "no-cache, no-transform",
         connection: "keep-alive",
       });
-      reply.raw.write(`data: ${JSON.stringify({ token: safety.safeResponse })}\n\n`);
-      reply.raw.write(`data: ${JSON.stringify({ done: true, reply: safety.safeResponse })}\n\n`);
+      writeSSE(reply.raw, { token: safety.safeResponse });
+      writeSSE(reply.raw, { done: true, reply: safety.safeResponse });
       reply.raw.end();
       return;
     }
@@ -113,25 +120,45 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
 
     try {
+      const systemPrompt =
+        body.agent_runtime?.system_prompt || conversationFollowupPromptV1.template;
+      const provider = getLLMProviderFromRuntime(body.agent_runtime);
+
       let fullReply = "";
-      for await (const token of streamConversation(
+      let hadToolCalls = false;
+
+      for await (const chunk of runReActLoopStream(
+        provider,
+        toolRegistry,
+        systemPrompt,
         history,
         body.content,
-        body.agent_runtime,
-        toolRegistry,
         toolContext,
       )) {
-        fullReply += token;
-        reply.raw.write(`data: ${JSON.stringify({ token })}\n\n`);
+        switch (chunk.type) {
+          case "tool_calls":
+            // Tools are being called — notify frontend to show "thinking"
+            hadToolCalls = true;
+            writeSSE(reply.raw, { thinking: true });
+            break;
+          case "token":
+            fullReply += chunk.content;
+            writeSSE(reply.raw, { token: chunk.content });
+            break;
+          case "done":
+            writeSSE(reply.raw, {
+              done: true,
+              reply: fullReply,
+              session_id: sessionId,
+              used_tools: hadToolCalls,
+              finish_reason: chunk.finish_reason,
+            });
+            break;
+        }
       }
-      reply.raw.write(
-        `data: ${JSON.stringify({ done: true, reply: fullReply, session_id: sessionId })}\n\n`,
-      );
     } catch (error) {
       request.log.error(error, "streaming conversation failed");
-      reply.raw.write(
-        `data: ${JSON.stringify({ error: "conversation streaming failed", done: true })}\n\n`,
-      );
+      writeSSE(reply.raw, { error: "conversation streaming failed", done: true });
     }
 
     reply.raw.end();

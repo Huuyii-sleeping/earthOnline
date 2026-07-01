@@ -10,23 +10,25 @@
  * 4. REPEAT until the LLM produces a final text reply (no tool calls) or
  *    the max iteration limit is reached.
  *
- * This enables the Agent to:
- * - Decide on its own whether it needs more context (e.g., "let me check
- *   what medals this user already has before I ask a follow-up question")
- * - Make multiple tool calls in a single reasoning step
- * - Chain tool calls across iterations (e.g., check medals → check growth
- *   profile → synthesize a personalized response)
+ * Two versions are provided:
+ * - runReActLoop: non-streaming, returns a complete ReActResult.
+ * - runReActLoopStream: streaming, yields StreamChunks for SSE.
  *
- * Design decisions:
- * - Max 3 iterations: prevents infinite loops and controls cost. Most
- *   conversations need 0-1 tool calls; 3 is a generous ceiling.
- * - Tool results are truncated to 2000 chars: prevents context window
- *   bloat from large API responses.
- * - The loop yields intermediate reasoning for observability (logging),
- *   not for streaming to the user. The final reply is streamed separately.
+ * The streaming version uses the two-phase approach:
+ * - Phase 1: non-streaming chatWithTools to decide if tools are needed.
+ *   If tools are needed, execute them and loop back.
+ * - Phase 2: stream the final reply token by token after tool execution.
+ * - If no tools are needed in phase 1, the content is yielded directly
+ *   (no second LLM call).
  */
 
-import type { ChatMessage, LLMProvider, LLMResponse, ToolContext } from "../providers/types.js";
+import type {
+  ChatMessage,
+  LLMProvider,
+  LLMResponse,
+  StreamChunk,
+  ToolContext,
+} from "../providers/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import { checkSafety } from "../safety/index.js";
 
@@ -34,26 +36,19 @@ const MAX_ITERATIONS = 3;
 const MAX_TOOL_RESULT_LENGTH = 2000;
 
 export interface ReActStep {
-  /** "reasoning" | "tool_call" | "tool_result" | "final" */
   type: "reasoning" | "tool_call" | "tool_result" | "final";
-  /** The LLM's text content or a summary of the tool call/result. */
   content: string;
 }
 
 export interface ReActResult {
-  /** The final text reply from the LLM (what the user sees). */
   reply: string;
-  /** Whether the LLM indicated the conversation is ready for summary generation. */
   done: boolean;
-  /** Steps taken during the loop (for logging/debugging). */
   steps: ReActStep[];
-  /** Whether any tool calls were made. */
   usedTools: boolean;
 }
 
 /**
  * Truncate a string to maxLen, adding an ellipsis if truncated.
- * Prevents large API responses from blowing up the context window.
  */
 function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
@@ -62,9 +57,6 @@ function truncate(text: string, maxLen: number): string {
 
 /**
  * Detect whether the LLM's reply indicates readiness for summary generation.
- * This is a heuristic that combines keyword matching with the LLM's own
- * judgment — if the model explicitly says "ready" or the user said "generate",
- * we trust that signal.
  */
 function detectReadiness(reply: string, userMessage: string): boolean {
   const userWantsGenerate = ["生成奖章", "直接生成", "可以了", "总结", "generate medal"].some(
@@ -79,16 +71,28 @@ function detectReadiness(reply: string, userMessage: string): boolean {
 }
 
 /**
- * Run the ReAct loop for a conversation turn.
- *
- * @param provider - LLM provider with tool-calling support
- * @param tools - Tool registry (may be null if no tools are available)
- * @param systemPrompt - The system prompt for the conversation
- * @param history - Prior conversation history
- * @param userMessage - The user's current message
- * @param context - Tool execution context (userId, sessionId)
- * @returns ReActResult with the final reply and execution trace
+ * Build the message array from system prompt, history, and user message.
+ * Extracted as a shared helper for both streaming and non-streaming paths.
  */
+function buildMessages(
+  systemPrompt: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string,
+): ChatMessage[] {
+  return [
+    { role: "system", content: systemPrompt },
+    ...history.map((h) => ({
+      role: h.role === "user" ? ("user" as const) : ("assistant" as const),
+      content: h.content,
+    })),
+    { role: "user", content: userMessage },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Non-streaming ReAct loop (for non-streaming endpoints)
+// ---------------------------------------------------------------------------
+
 export async function runReActLoop(
   provider: LLMProvider,
   tools: ToolRegistry | null,
@@ -99,7 +103,6 @@ export async function runReActLoop(
 ): Promise<ReActResult> {
   const steps: ReActStep[] = [];
 
-  // Safety check — short-circuit before any LLM call.
   const safety = checkSafety(userMessage);
   if (!safety.safe) {
     return {
@@ -110,64 +113,43 @@ export async function runReActLoop(
     };
   }
 
-  // Build the initial message array.
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...history.map((h) => ({
-      role: h.role === "user" ? ("user" as const) : ("assistant" as const),
-      content: h.content,
-    })),
-    { role: "user", content: userMessage },
-  ];
-
-  // Get tool definitions (empty array if no tools registered).
+  const messages = buildMessages(systemPrompt, history, userMessage);
   const toolDefs = tools?.getDefinitions() ?? [];
 
   let lastResponse: LLMResponse | null = null;
   let usedTools = false;
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    // --- REASON: Ask the LLM what to do next ---
     let response: LLMResponse;
 
     if (toolDefs.length > 0) {
       response = await provider.chatWithTools(messages, toolDefs);
     } else {
-      // No tools available — fall back to plain chat.
       response = await provider.chat(messages);
     }
 
     lastResponse = response;
 
-    // If the LLM didn't request any tool calls, we have our final answer.
     if (!response.tool_calls || response.tool_calls.length === 0) {
-      steps.push({
-        type: "final",
-        content: response.content.slice(0, 200),
-      });
+      steps.push({ type: "final", content: response.content.slice(0, 200) });
       break;
     }
 
-    // --- ACT: The LLM wants to call tools ---
     usedTools = true;
     steps.push({
       type: "tool_call",
       content: response.tool_calls.map((tc) => tc.function.name).join(", "),
     });
 
-    // Add the assistant's tool-call message to the conversation so the
-    // LLM sees its own request in the next iteration.
     messages.push({
       role: "assistant",
       content: response.content || "",
       tool_calls: response.tool_calls,
     });
 
-    // Execute all requested tool calls.
     if (tools) {
       const results = await tools.executeAll(response.tool_calls, context);
 
-      // --- OBSERVE: Feed tool results back to the LLM ---
       for (const call of response.tool_calls) {
         const result = results.get(call.id) ?? '{"error": "No result"}';
         const truncated = truncate(result, MAX_TOOL_RESULT_LENGTH);
@@ -185,35 +167,139 @@ export async function runReActLoop(
         });
       }
     }
-
-    // Loop continues — the LLM will see the tool results and either
-    // call more tools or produce a final reply.
   }
 
-  // If we exhausted all iterations without a final reply, use whatever
-  // content we have from the last response.
   const finalReply = lastResponse?.content || "抱歉，我暂时无法回复。";
   const done = detectReadiness(finalReply, userMessage);
 
-  return {
-    reply: finalReply,
-    done,
-    steps,
-    usedTools,
-  };
+  return { reply: finalReply, done, steps, usedTools };
 }
 
+// ---------------------------------------------------------------------------
+// Streaming ReAct loop (for SSE endpoints)
+// ---------------------------------------------------------------------------
+
 /**
- * Streaming version of the conversation turn.
+ * Run the ReAct loop in streaming mode.
  *
- * For now, streaming doesn't support tool calling — tools require the
- * complete structured response. So we run a hybrid approach:
- * 1. First, run the ReAct loop (non-streaming) to handle any tool calls.
- * 2. If tools were used, yield the final reply as a single chunk.
- * 3. If no tools were used, stream the response normally for low latency.
+ * Yields StreamChunks that the caller forwards to the SSE client:
+ * - `{ type: "tool_calls" }`: tools are being called. The caller can show
+ *   a "thinking..." indicator to the user.
+ * - `{ type: "token" }`: a text token from the final reply. Forward directly.
+ * - `{ type: "done" }`: the loop is complete.
  *
- * This gives us the best of both worlds: tool-calling intelligence when
- * needed, streaming responsiveness when not.
+ * The key difference from runReActLoop: after tool execution, the final
+ * reply is streamed token by token via `provider.streamFinalReply()`,
+ * giving the user real-time typing feedback even when tools were used.
+ */
+export async function* runReActLoopStream(
+  provider: LLMProvider,
+  tools: ToolRegistry | null,
+  systemPrompt: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string,
+  context?: ToolContext,
+): AsyncGenerator<StreamChunk, void, unknown> {
+  // Safety check — short-circuit before any LLM call.
+  const safety = checkSafety(userMessage);
+  if (!safety.safe) {
+    yield { type: "token", content: safety.safeResponse! };
+    yield { type: "done", finish_reason: "safety" };
+    return;
+  }
+
+  const messages = buildMessages(systemPrompt, history, userMessage);
+  const toolDefs = tools?.getDefinitions() ?? [];
+
+  // If no tools are available, skip the tool-calling logic entirely
+  // and stream directly for lowest latency.
+  if (toolDefs.length === 0) {
+    yield* provider.streamFinalReply(messages);
+    return;
+  }
+
+  // --- ReAct loop with two-phase streaming ---
+
+  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    // Phase 1: non-streaming check — does the model want tools?
+    const chunkIterator = provider.streamWithTools(messages, toolDefs);
+    const firstChunk = (await chunkIterator.next()).value;
+
+    if (!firstChunk) {
+      yield { type: "token", content: "抱歉，我暂时无法回复。" };
+      yield { type: "done", finish_reason: "error" };
+      return;
+    }
+
+    // If the model wants tools, execute them and loop back.
+    if (firstChunk.type === "tool_calls") {
+      const toolCalls = firstChunk.tool_calls;
+
+      // Add the assistant's tool-call message to the conversation.
+      messages.push({
+        role: "assistant",
+        content: "",
+        tool_calls: toolCalls,
+      });
+
+      // Execute all requested tool calls.
+      if (tools) {
+        const results = await tools.executeAll(toolCalls, context);
+
+        for (const call of toolCalls) {
+          const result = results.get(call.id) ?? '{"error": "No result"}';
+          const truncated = truncate(result, MAX_TOOL_RESULT_LENGTH);
+
+          messages.push({
+            role: "tool",
+            content: truncated,
+            tool_call_id: call.id,
+            name: call.function.name,
+          });
+        }
+      }
+
+      // Loop back — the model will see tool results and either call more
+      // tools or produce a final reply.
+      continue;
+    }
+
+    // The model produced a final reply (no tool calls).
+    // firstChunk is either "token" or "done".
+    if (firstChunk.type === "token") {
+      yield firstChunk;
+    }
+
+    // Consume any remaining chunks (there should be a "done" chunk).
+    for await (const chunk of chunkIterator) {
+      if (chunk.type === "token") {
+        yield chunk;
+      } else if (chunk.type === "done") {
+        yield chunk;
+      }
+    }
+
+    return;
+  }
+
+  // Exhausted all iterations — the model kept requesting tools.
+  // Force a final streaming reply without tools.
+  yield* provider.streamFinalReply(messages);
+}
+
+// ---------------------------------------------------------------------------
+// Convenience wrapper (kept for backward compatibility)
+// ---------------------------------------------------------------------------
+
+/**
+ * Streaming conversation with tool support.
+ *
+ * This is a thin wrapper around runReActLoopStream that yields plain
+ * strings (tokens only), filtering out non-token chunks. Used by
+ * conversation.graph.ts for the streamConversation function.
+ *
+ * The route handler should use runReActLoopStream directly if it needs
+ * access to tool_calls chunks (for "thinking" indicators).
  */
 export async function* streamConversationWithTools(
   provider: LLMProvider,
@@ -223,97 +309,46 @@ export async function* streamConversationWithTools(
   userMessage: string,
   context?: ToolContext,
 ): AsyncGenerator<string, void, unknown> {
-  // Safety check
-  const safety = checkSafety(userMessage);
-  if (!safety.safe) {
-    yield safety.safeResponse!;
-    return;
-  }
-
-  const toolDefs = tools?.getDefinitions() ?? [];
-
-  // If tools are available, try the ReAct loop first.
-  if (toolDefs.length > 0) {
-    // Quick check: does the user message suggest they need tool context?
-    // Simple greetings or short messages don't need tool calls.
-    const needsContext = shouldUseTools(userMessage, history);
-
-    if (needsContext) {
-      const result = await runReActLoop(
-        provider,
-        tools,
-        systemPrompt,
-        history,
-        userMessage,
-        context,
-      );
-
-      if (result.usedTools) {
-        // Yield the final reply as a single chunk — it was produced
-        // after tool reasoning, so streaming it token-by-token would
-        // require a second LLM call which isn't worth the latency.
-        yield result.reply;
-        return;
-      }
-
-      // If tools were available but not used, the ReAct loop already
-      // got a final reply. Yield it.
-      if (result.reply) {
-        yield result.reply;
-        return;
-      }
+  for await (const chunk of runReActLoopStream(
+    provider,
+    tools,
+    systemPrompt,
+    history,
+    userMessage,
+    context,
+  )) {
+    if (chunk.type === "token") {
+      yield chunk.content;
     }
   }
-
-  // Fall through to plain streaming (no tools).
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...history.map((h) => ({
-      role: h.role === "user" ? ("user" as const) : ("assistant" as const),
-      content: h.content,
-    })),
-    { role: "user", content: userMessage },
-  ];
-
-  yield* provider.stream(messages);
 }
 
 /**
  * Heuristic: decide whether the user's message warrants tool calls.
  *
- * Simple greetings ("你好", "hi") and very short messages (< 10 chars)
- * don't need the overhead of a tool-calling round-trip. The LLM can
- * respond directly.
- *
- * Messages that reference past experiences, ask about history, or are
- * long enough to be a substantive experience description are good
- * candidates for tool enrichment.
+ * Simple greetings ("你好", "hi") and very short messages don't need
+ * the overhead of a tool-calling round-trip.
  */
-function shouldUseTools(
+export function shouldUseTools(
   userMessage: string,
   history: { role: "user" | "assistant"; content: string }[],
 ): boolean {
   const msg = userMessage.trim().toLowerCase();
 
-  // Short greetings / acknowledgements — no tools needed.
   const simpleMessages = ["你好", "hi", "hello", "嘿", "嗯", "好的", "ok", "谢谢"];
   if (simpleMessages.some((s) => msg === s || msg === s + "。")) {
     return false;
   }
 
-  // Very first message (no history) and short — probably just starting.
   if (history.length === 0 && userMessage.length < 15) {
     return false;
   }
 
-  // Messages that reference history or ask about existing data.
   const historyKeywords = ["之前", "上次", "已经", "以前", "历史", "previous", "last time"];
   if (historyKeywords.some((kw) => msg.includes(kw))) {
     return true;
   }
 
-  // Substantive experience descriptions (longer messages) — tools can
-  // help personalize the response.
   if (userMessage.length > 50) {
     return true;
   }

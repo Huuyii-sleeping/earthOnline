@@ -74,6 +74,7 @@ export default function CreateExperiencePage() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isSending, setIsSending] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [isGeneratingMedal, setIsGeneratingMedal] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,13 +153,18 @@ export default function CreateExperiencePage() {
     setMessage("");
     setError(null);
     setIsSending(true);
+    setIsThinking(false);
 
     try {
       const currentSessionId = await ensureExperienceAndSession();
 
       // Stream the agent's reply token by token
       sendMessageStream(currentSessionId, userContent, {
+        onThinking: () => {
+          setIsThinking(true);
+        },
         onToken: (token) => {
+          setIsThinking(false);
           setMessages((prev) =>
             prev.map((item) =>
               item.id === assistantMessageId ? { ...item, content: item.content + token } : item,
@@ -178,6 +184,7 @@ export default function CreateExperiencePage() {
             }),
           );
           setIsSending(false);
+          setIsThinking(false);
         },
         onError: (err) => {
           const errorMessage = err instanceof Error ? err.message : "发送消息失败";
@@ -190,6 +197,7 @@ export default function CreateExperiencePage() {
             ),
           );
           setIsSending(false);
+          setIsThinking(false);
         },
       });
     } catch (err) {
@@ -400,6 +408,14 @@ export default function CreateExperiencePage() {
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
+          </div>
+        )}
+
+        {/* Agent thinking indicator — shown while tools are executing */}
+        {isThinking && (
+          <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>正在查阅你的记录...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
