@@ -128,6 +128,33 @@ export type StreamChunk =
 // Provider interface
 // ---------------------------------------------------------------------------
 
+/**
+ * Error thrown when the model doesn't support native function calling.
+ * The agent loop catches this and falls back to prompt-based tool calling.
+ */
+export class ToolCallingNotSupportedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ToolCallingNotSupportedError";
+  }
+}
+
+/**
+ * Check if an error indicates the model doesn't support function calling.
+ */
+export function isToolCallingError(err: unknown): boolean {
+  if (err instanceof ToolCallingNotSupportedError) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("does not support function calling") ||
+    (lower.includes("tool_calls") && lower.includes("not supported")) ||
+    lower.includes("unrecognized request argument") ||
+    (lower.includes("functions") && lower.includes("not supported")) ||
+    (lower.includes("invalid_request_error") && lower.includes("tools"))
+  );
+}
+
 export interface LLMProvider {
   /** Plain text chat — no tool calling. Returns a complete response. */
   chat(messages: ChatMessage[]): Promise<LLMResponse>;

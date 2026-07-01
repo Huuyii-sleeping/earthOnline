@@ -29,8 +29,10 @@ import type {
   StreamChunk,
   ToolContext,
 } from "../providers/types.js";
+import { ToolCallingNotSupportedError, isToolCallingError } from "../providers/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import { checkSafety } from "../safety/index.js";
+import { runPromptBasedToolLoop } from "./prompt-tools.js";
 
 const MAX_ITERATIONS = 3;
 const MAX_TOOL_RESULT_LENGTH = 2000;
@@ -232,72 +234,89 @@ export async function* runReActLoopStream(
   }
 
   // --- ReAct loop with two-phase streaming ---
+  // Wrapped in try-catch to handle models that don't support native
+  // function calling — falls back to prompt-based tool calling.
 
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    // Phase 1: non-streaming check — does the model want tools?
-    const chunkIterator = provider.streamWithTools(messages, toolDefs);
-    const firstChunk = (await chunkIterator.next()).value;
+  try {
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+      // Phase 1: non-streaming check — does the model want tools?
+      const chunkIterator = provider.streamWithTools(messages, toolDefs);
+      const firstChunk = (await chunkIterator.next()).value;
 
-    if (!firstChunk) {
-      yield { type: "token", content: "抱歉，我暂时无法回复。" };
-      yield { type: "done", finish_reason: "error" };
-      return;
-    }
+      if (!firstChunk) {
+        yield { type: "token", content: "抱歉，我暂时无法回复。" };
+        yield { type: "done", finish_reason: "error" };
+        return;
+      }
 
-    // If the model wants tools, execute them and loop back.
-    if (firstChunk.type === "tool_calls") {
-      const toolCalls = firstChunk.tool_calls;
+      // If the model wants tools, execute them and loop back.
+      if (firstChunk.type === "tool_calls") {
+        const toolCalls = firstChunk.tool_calls;
 
-      // Add the assistant's tool-call message to the conversation.
-      messages.push({
-        role: "assistant",
-        content: "",
-        tool_calls: toolCalls,
-      });
+        // Add the assistant's tool-call message to the conversation.
+        messages.push({
+          role: "assistant",
+          content: "",
+          tool_calls: toolCalls,
+        });
 
-      // Execute all requested tool calls.
-      if (tools) {
-        const results = await tools.executeAll(toolCalls, context);
+        // Execute all requested tool calls.
+        if (tools) {
+          const results = await tools.executeAll(toolCalls, context);
 
-        for (const call of toolCalls) {
-          const result = results.get(call.id) ?? '{"error": "No result"}';
-          const truncated = truncate(result, MAX_TOOL_RESULT_LENGTH);
+          for (const call of toolCalls) {
+            const result = results.get(call.id) ?? '{"error": "No result"}';
+            const truncated = truncate(result, MAX_TOOL_RESULT_LENGTH);
 
-          messages.push({
-            role: "tool",
-            content: truncated,
-            tool_call_id: call.id,
-            name: call.function.name,
-          });
+            messages.push({
+              role: "tool",
+              content: truncated,
+              tool_call_id: call.id,
+              name: call.function.name,
+            });
+          }
+        }
+
+        // Loop back — the model will see tool results and either call more
+        // tools or produce a final reply.
+        continue;
+      }
+
+      // The model produced a final reply (no tool calls).
+      // firstChunk is either "token" or "done".
+      if (firstChunk.type === "token") {
+        yield firstChunk;
+      }
+
+      // Consume any remaining chunks (there should be a "done" chunk).
+      for await (const chunk of chunkIterator) {
+        if (chunk.type === "token") {
+          yield chunk;
+        } else if (chunk.type === "done") {
+          yield chunk;
         }
       }
 
-      // Loop back — the model will see tool results and either call more
-      // tools or produce a final reply.
-      continue;
+      return;
     }
 
-    // The model produced a final reply (no tool calls).
-    // firstChunk is either "token" or "done".
-    if (firstChunk.type === "token") {
-      yield firstChunk;
-    }
-
-    // Consume any remaining chunks (there should be a "done" chunk).
-    for await (const chunk of chunkIterator) {
-      if (chunk.type === "token") {
-        yield chunk;
-      } else if (chunk.type === "done") {
-        yield chunk;
+    // Exhausted all iterations — the model kept requesting tools.
+    // Force a final streaming reply without tools.
+    yield* provider.streamFinalReply(messages);
+  } catch (err) {
+    // If the model doesn't support native function calling, fall back to
+    // prompt-based tool calling (embeds tool definitions in the system prompt
+    // and parses tool calls from the model's text output).
+    if (err instanceof ToolCallingNotSupportedError || isToolCallingError(err)) {
+      if (tools) {
+        yield* runPromptBasedToolLoop(provider, tools, messages, context);
+        return;
       }
     }
 
-    return;
+    // Re-throw other errors
+    throw err;
   }
-
-  // Exhausted all iterations — the model kept requesting tools.
-  // Force a final streaming reply without tools.
-  yield* provider.streamFinalReply(messages);
 }
 
 // ---------------------------------------------------------------------------

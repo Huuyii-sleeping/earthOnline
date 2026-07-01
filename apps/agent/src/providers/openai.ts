@@ -14,6 +14,7 @@ import type {
   ToolCall,
   StreamChunk,
 } from "./types.js";
+import { ToolCallingNotSupportedError, isToolCallingError } from "./types.js";
 
 /**
  * Convert our framework-agnostic ChatMessage[] into LangChain message objects.
@@ -190,15 +191,18 @@ export class OpenAIProvider implements LLMProvider {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
 
-      // Fallback: if invoke fails (e.g. Premature close on some APIs),
-      // stream the response without tool support. The agent loop will get
-      // a plain text response and treat it as a normal reply.
+      // Premature close 降级 (现有)
       if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
         let content = "";
         for await (const token of this.stream(messages)) {
           content += token;
         }
         return { content, finish_reason: "stop" };
+      }
+
+      // Tool calling not supported — let the agent loop handle the fallback
+      if (isToolCallingError(err)) {
+        throw new ToolCallingNotSupportedError(errorMsg);
       }
 
       throw err;
