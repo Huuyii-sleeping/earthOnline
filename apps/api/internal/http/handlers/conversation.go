@@ -50,12 +50,21 @@ func (h *ConversationHandler) CreateSession(c *gin.Context) {
 	var agentProfile database.AgentProfile
 	if err := h.db.Where("user_id = ?", userID).First(&agentProfile).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			uid, ok := userID.(string)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+				return
+			}
 			agentProfile = database.AgentProfile{
-				UserID:         userID.(string),
+				UserID:         uid,
 				Name:           "My Agent",
 				ProactiveLevel: 1,
 			}
-			h.db.Create(&agentProfile)
+			if err := h.db.Create(&agentProfile).Error; err != nil {
+				h.logger.Error("failed to create agent profile", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
 		} else {
 			h.logger.Error("failed to query agent profile", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -133,6 +142,12 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		}
 		h.logger.Error("failed to query session", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// Reject messages if the conversation is in GENERATING state
+	if session.CurrentState == "GENERATING" {
+		c.JSON(http.StatusConflict, gin.H{"error": "conversation is in generating state, no more messages accepted"})
 		return
 	}
 
@@ -228,9 +243,17 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 
 	// Update session's conversation state if the Agent returned one
 	if agentResp.ConversationState != "" {
-		h.db.Model(&database.ConversationSession{}).
+		if err := h.db.Model(&database.ConversationSession{}).
 			Where("id = ?", sessionID).
-			Update("current_state", agentResp.ConversationState)
+			Update("current_state", agentResp.ConversationState).Error; err != nil {
+			h.logger.Error("failed to update conversation state", "error", err, "session_id", sessionID)
+		}
+	}
+
+	// Validate agent reply is not empty
+	if agentResp.Reply == "" {
+		agentResp.Reply = "抱歉，我暂时无法回复，请稍后再试。"
+		h.logger.Warn("agent returned empty reply", "session_id", sessionID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -256,6 +279,12 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 		}
 		h.logger.Error("failed to query session", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// Reject messages if the conversation is in GENERATING state
+	if session.CurrentState == "GENERATING" {
+		c.JSON(http.StatusConflict, gin.H{"error": "conversation is in generating state, no more messages accepted"})
 		return
 	}
 
@@ -413,9 +442,11 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 
 			// Update session's conversation state
 			if data.ConversationState != "" {
-				h.db.Model(&database.ConversationSession{}).
+				if err := h.db.Model(&database.ConversationSession{}).
 					Where("id = ?", sessionID).
-					Update("current_state", data.ConversationState)
+					Update("current_state", data.ConversationState).Error; err != nil {
+					h.logger.Error("failed to update conversation state", "error", err, "session_id", sessionID)
+				}
 			}
 
 			doneJSON, _ := json.Marshal(map[string]any{

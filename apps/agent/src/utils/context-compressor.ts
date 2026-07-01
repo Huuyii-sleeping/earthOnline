@@ -84,8 +84,8 @@ export class ContextCompressor {
     // until we hit the token budget.
     for (let i = messages.length - 1; i >= 0; i--) {
       const msgTokens = estimateTokens(messages[i].content) + 4;
-      if (recentTokens + msgTokens > recentTokenBudget && recentMessages.length >= 4) {
-        // Keep at least 4 messages (2 turns) even if under budget.
+      if (recentTokens + msgTokens > recentTokenBudget && recentMessages.length >= 2) {
+        // Keep at least 2 messages (1 turn) even if under budget.
         break;
       }
       recentMessages.unshift(messages[i]);
@@ -142,8 +142,8 @@ export class ContextCompressor {
       const response = await this.provider.chat(summaryMessages);
       let summary = response.content.trim();
 
-      // Enforce max length.
-      if (summary.length > MAX_SUMMARY_LENGTH * 2) {
+      // Enforce max length — consistent with the prompt's 200-char requirement.
+      if (summary.length > MAX_SUMMARY_LENGTH) {
         summary = summary.slice(0, MAX_SUMMARY_LENGTH) + "...";
       }
 

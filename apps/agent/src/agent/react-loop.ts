@@ -65,9 +65,15 @@ function detectReadiness(reply: string, userMessage: string): boolean {
     (kw) => userMessage.toLowerCase().includes(kw.toLowerCase()),
   );
 
-  const agentThinksReady = ["总结", "准备好了", "可以生成", "ready to generate", "summary"].some(
-    (kw) => reply.toLowerCase().includes(kw.toLowerCase()),
-  );
+  // Use specific phrases instead of bare "总结" which appears in normal
+  // conversation (e.g. "总结一下你说的" is not a readiness signal).
+  const agentThinksReady = [
+    "准备好了",
+    "可以生成",
+    "信息已经足够",
+    "ready to generate",
+    "enough information",
+  ].some((kw) => reply.toLowerCase().includes(kw.toLowerCase()));
 
   return userWantsGenerate || agentThinksReady;
 }
@@ -332,7 +338,12 @@ export async function* runReActLoopStream(
     // and parses tool calls from the model's text output).
     if (err instanceof ToolCallingNotSupportedError || isToolCallingError(err)) {
       if (tools) {
-        yield* runPromptBasedToolLoop(provider, tools, messages, context);
+        // Filter out tool-role and assistant-with-tool_calls messages —
+        // prompt-based loop only works with system/user/assistant(content) roles.
+        const cleanMessages = messages.filter(
+          (m) => m.role !== "tool" && !(m.role === "assistant" && m.tool_calls),
+        );
+        yield* runPromptBasedToolLoop(provider, tools, cleanMessages, context);
         return;
       }
     }

@@ -34,13 +34,23 @@ function toLangChainMessages(messages: ChatMessage[]): BaseMessage[] {
         // model sees the full conversation history including its own tool
         // requests.
         if (msg.tool_calls && msg.tool_calls.length > 0) {
-          return new AIMessage({
-            content: msg.content,
-            tool_calls: msg.tool_calls.map((tc) => ({
+          // Parse tool call arguments safely — model may return invalid JSON
+          const parsedToolCalls = msg.tool_calls.map((tc) => {
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(tc.function.arguments || "{}");
+            } catch {
+              // Invalid JSON arguments — fallback to empty object
+            }
+            return {
               id: tc.id,
               name: tc.function.name,
-              args: JSON.parse(tc.function.arguments || "{}"),
-            })),
+              args,
+            };
+          });
+          return new AIMessage({
+            content: msg.content,
+            tool_calls: parsedToolCalls,
           });
         }
         return new AIMessage(msg.content);
@@ -81,12 +91,13 @@ export class OpenAIProvider implements LLMProvider {
   private savedApiKey: string;
   private savedModelName: string;
   private savedApiBase?: string;
+  private savedTemperature: number;
 
-  constructor(apiKey: string, modelName = "gpt-4o", apiBase?: string) {
+  constructor(apiKey: string, modelName = "gpt-4o", apiBase?: string, temperature = 0.8) {
     const config: ConstructorParameters<typeof ChatOpenAI>[0] = {
       openAIApiKey: apiKey,
       modelName,
-      temperature: 0.8,
+      temperature,
       streaming: false,
     };
     if (apiBase) {
@@ -96,6 +107,7 @@ export class OpenAIProvider implements LLMProvider {
     this.savedApiKey = apiKey;
     this.savedModelName = modelName;
     this.savedApiBase = apiBase;
+    this.savedTemperature = temperature;
   }
 
   /**
@@ -108,7 +120,7 @@ export class OpenAIProvider implements LLMProvider {
     const config: ConstructorParameters<typeof ChatOpenAI>[0] = {
       openAIApiKey: this.savedApiKey,
       modelName: this.savedModelName,
-      temperature: 0.8,
+      temperature: this.savedTemperature,
       ...overrides,
     };
     if (this.savedApiBase) {
@@ -142,6 +154,8 @@ export class OpenAIProvider implements LLMProvider {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
+        // Stream interrupted — caller gets partial content (whatever was
+        // yielded before the error). The stream simply ends here.
         return;
       }
       throw err;
@@ -191,13 +205,13 @@ export class OpenAIProvider implements LLMProvider {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
 
-      // Premature close 降级 (现有)
+      // Premature close 降级: stream without tools, mark as degraded
       if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
         let content = "";
         for await (const token of this.stream(messages)) {
           content += token;
         }
-        return { content, finish_reason: "stop" };
+        return { content, finish_reason: "degraded" };
       }
 
       // Tool calling not supported — let the agent loop handle the fallback

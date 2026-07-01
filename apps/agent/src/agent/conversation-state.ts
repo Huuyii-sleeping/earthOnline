@@ -60,16 +60,20 @@ const GENERATE_KEYWORDS = [
   "summarize",
 ];
 
-/** Keywords that signal the user is correcting the Agent's understanding. */
+/** Keywords that signal the user is correcting the Agent's understanding.
+ *  Use specific phrases to avoid false positives (e.g. "不是" alone matches
+ *  "我不是这个意思" but also "我不是说了吗" which isn't a correction). */
 const CORRECTION_KEYWORDS = [
-  "不是",
   "不对",
   "搞错了",
   "说错了",
+  "理解错了",
+  "不是这样的",
+  "你理解错了",
   "其实是",
-  "no",
   "not right",
-  "actually",
+  "you got it wrong",
+  "that's not it",
 ];
 
 /**
@@ -159,7 +163,7 @@ export function transition(
       // and let the Agent encourage them to share more.
       break;
 
-    case "PROBE":
+    case "PROBE": {
       next.probeCount = current.probeCount + 1;
 
       // Track which dimension was probed.
@@ -174,6 +178,7 @@ export function transition(
         next.state = "REFLECT";
       }
       break;
+    }
 
     case "REFLECT": {
       // If the user corrects the Agent's understanding, go back to PROBE.
@@ -211,6 +216,13 @@ export function transition(
 
     case "GENERATING":
       // Terminal state — no transitions out.
+      break;
+
+    default:
+      // Unknown state — reset to INTAKE as a safe default.
+      next.state = "INTAKE";
+      next.probeCount = 0;
+      next.collectedDimensions = [];
       break;
   }
 

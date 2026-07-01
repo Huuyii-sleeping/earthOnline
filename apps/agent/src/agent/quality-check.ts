@@ -153,9 +153,15 @@ export async function llmJudgeQuality(
     userMessage: string;
   },
 ): Promise<QualityResult> {
-  const prompt = JUDGE_PROMPT.replace("{userMessage}", context.userMessage.slice(0, 200))
-    .replace("{reply}", reply.slice(0, 500))
-    .replace("{state}", context.state);
+  // Use split+join instead of chained .replace() to avoid template injection
+  // (e.g. if userMessage contains the literal "{reply}", the second replace
+  // would corrupt the prompt).
+  const prompt = JUDGE_PROMPT.split("{userMessage}")
+    .join(context.userMessage.slice(0, 200))
+    .split("{reply}")
+    .join(reply.slice(0, 500))
+    .split("{state}")
+    .join(context.state);
 
   const messages: ChatMessage[] = [
     { role: "system", content: prompt },
@@ -185,7 +191,8 @@ export async function llmJudgeQuality(
       : [];
 
     return {
-      passed: !shouldRetry && issues.length === 0,
+      // passed should only depend on should_retry — issues are advisory
+      passed: !shouldRetry,
       issues,
     };
   } catch {
@@ -222,23 +229,21 @@ export async function checkQuality(
     return tier1;
   }
 
-  // If only high-severity issues, skip LLM judge — retry directly
   const hasHighSeverity = tier1.issues.some((i) => i.severity === "high");
-  const hasLowSeverity = tier1.issues.some((i) => i.severity === "low");
 
-  if (hasHighSeverity && !hasLowSeverity) {
+  // If any high-severity issues exist, skip LLM judge — retry directly.
+  // LLM judge is only useful for low-severity issues where we're unsure
+  // whether a retry is warranted.
+  if (hasHighSeverity) {
     return tier1;
   }
 
-  // Has low-severity issues — get LLM judge opinion
+  // Only low-severity issues — get LLM judge opinion
   const tier2 = await llmJudgeQuality(provider, reply, context);
 
-  // Merge: combine tier1 high-severity issues with tier2 results
-  const allIssues = [...tier1.issues.filter((i) => i.severity === "high"), ...tier2.issues];
-
   return {
-    passed: tier2.passed && !hasHighSeverity,
-    issues: allIssues,
+    passed: tier2.passed,
+    issues: [...tier1.issues, ...tier2.issues],
   };
 }
 

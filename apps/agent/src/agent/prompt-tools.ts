@@ -114,6 +114,11 @@ export function parseToolCallsFromText(text: string): {
         const remainingText = trimmed.slice(jsonEnd).trim();
         return { toolCalls, remainingText };
       }
+
+      // tool_calls was present but empty (e.g. {"tool_calls":[]}) —
+      // return remaining text after the JSON, not the original text.
+      const remainingAfterEmpty = trimmed.slice(jsonEnd).trim();
+      return { toolCalls: [], remainingText: remainingAfterEmpty || text };
     }
   } catch {
     // Not valid JSON — treat as normal text
@@ -178,10 +183,12 @@ export async function* runPromptBasedToolLoop(
 
         yield { type: "tool_calls", tool_calls: fakeToolCalls };
 
-        // Add assistant reply to messages
+        // Add assistant reply to messages — use empty content (matching
+        // native function calling behavior) to avoid the JSON tool-call
+        // text confusing the model in subsequent iterations.
         modifiedMessages.push({
           role: "assistant",
-          content: fullReply,
+          content: remainingText || "",
         });
 
         // Execute and add tool results
@@ -220,6 +227,15 @@ export async function* runPromptBasedToolLoop(
     break;
   }
 
-  // Exhausted iterations — stream a final reply without tools
-  yield* provider.streamFinalReply(modifiedMessages);
+  // Exhausted iterations — stream a final reply without tool prompt.
+  // Remove the tool prompt from the system message to prevent the model
+  // from trying to output more tool-call JSON.
+  const cleanMessages = modifiedMessages.map((msg, i) => {
+    if (i === 0 && msg.role === "system") {
+      const toolPromptText = buildToolPrompt(tools.getDefinitions());
+      return { ...msg, content: msg.content.replace(`\n\n${toolPromptText}`, "") };
+    }
+    return msg;
+  });
+  yield* provider.streamFinalReply(cleanMessages);
 }

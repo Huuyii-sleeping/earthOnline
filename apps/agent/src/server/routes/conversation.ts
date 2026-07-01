@@ -180,6 +180,12 @@ export async function conversationRoutes(app: FastifyInstance) {
 
       let fullReply = "";
       let hadToolCalls = false;
+      let clientDisconnected = false;
+
+      // Detect client disconnect to stop wasting LLM calls
+      request.raw.on("close", () => {
+        clientDisconnected = true;
+      });
 
       for await (const chunk of runReActLoopStream(
         provider,
@@ -190,6 +196,12 @@ export async function conversationRoutes(app: FastifyInstance) {
         toolContext,
         body.summary_text,
       )) {
+        // Stop if client disconnected
+        if (clientDisconnected) {
+          request.log.info("client disconnected, aborting ReAct loop");
+          break;
+        }
+
         switch (chunk.type) {
           case "tool_calls":
             hadToolCalls = true;
@@ -313,6 +325,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       return reply.code(500).send({
         error: "compression failed",
         summary: body.existing_summary || "",
+        compression_failed: true,
       });
     }
   });
