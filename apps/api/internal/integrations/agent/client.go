@@ -41,6 +41,10 @@ type SendMessageRequest struct {
 	SummaryText string `json:"summary_text,omitempty"`
 	// ConversationState is the current state machine phase (INTAKE/PROBE/REFLECT/READY).
 	ConversationState string `json:"conversation_state,omitempty"`
+	// History is the prior conversation messages loaded from DB.
+	// Without this, the Agent has zero context and can't remember
+	// what the user said in previous turns.
+	History []HistoryItem `json:"history,omitempty"`
 }
 
 // AgentRuntimePayload carries browser-side LLM credentials so the Agent

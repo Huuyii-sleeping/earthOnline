@@ -161,6 +161,21 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Load conversation history from DB (before the current user message).
+	var priorMessages []database.ConversationMessage
+	if err := h.db.Where("session_id = ? AND id != ?", sessionID, userMsg.ID).
+		Order("created_at ASC").Find(&priorMessages).Error; err != nil {
+		h.logger.Error("failed to load conversation history", "error", err)
+	}
+
+	history := make([]agent.HistoryItem, 0, len(priorMessages))
+	for _, msg := range priorMessages {
+		history = append(history, agent.HistoryItem{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
 	// Call Agent service
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
@@ -171,6 +186,7 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		UserID:            userID.(string),
 		SummaryText:       session.SummaryText,
 		ConversationState: session.CurrentState,
+		History:           history,
 	}
 
 	// Forward browser-side LLM credentials if provided
@@ -268,6 +284,22 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 		return
 	}
 
+	// Load conversation history from DB (before the current user message).
+	// Without this, the Agent has zero context and can't remember prior turns.
+	var priorMessages []database.ConversationMessage
+	if err := h.db.Where("session_id = ? AND id != ?", sessionID, userMsg.ID).
+		Order("created_at ASC").Find(&priorMessages).Error; err != nil {
+		h.logger.Error("failed to load conversation history", "error", err)
+	}
+
+	history := make([]agent.HistoryItem, 0, len(priorMessages))
+	for _, msg := range priorMessages {
+		history = append(history, agent.HistoryItem{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
 	// Build agent request
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
@@ -278,6 +310,7 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 		UserID:            userID.(string),
 		SummaryText:       session.SummaryText,
 		ConversationState: session.CurrentState,
+		History:           history,
 	}
 
 	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {
