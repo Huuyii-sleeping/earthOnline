@@ -96,6 +96,50 @@ func (h *ConversationHandler) CreateSession(c *gin.Context) {
 	}})
 }
 
+// ListSessions handles GET /experiences/:id/sessions
+// Returns the conversation sessions belonging to an experience, newest first.
+// Used by the frontend to locate the session when reviewing historical
+// conversations (so it can then call ListMessages).
+func (h *ConversationHandler) ListSessions(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	experienceID := c.Param("id")
+
+	// Verify experience belongs to user
+	var exp database.Experience
+	if err := h.db.Where("id = ? AND user_id = ?", experienceID, userID).First(&exp).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "experience not found"})
+			return
+		}
+		h.logger.Error("failed to query experience", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	var sessions []database.ConversationSession
+	if err := h.db.Where("experience_id = ?", experienceID).
+		Order("created_at DESC").Find(&sessions).Error; err != nil {
+		h.logger.Error("failed to list sessions", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	resp := make([]dto.SessionResponse, len(sessions))
+	for i, s := range sessions {
+		resp[i] = dto.SessionResponse{
+			ID:             s.ID,
+			UserID:         s.UserID,
+			ExperienceID:   s.ExperienceID,
+			AgentProfileID: s.AgentProfileID,
+			Status:         s.Status,
+			CreatedAt:      s.CreatedAt,
+			UpdatedAt:      s.UpdatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": resp})
+}
+
 // ListMessages handles GET /sessions/:id/messages
 func (h *ConversationHandler) ListMessages(c *gin.Context) {
 	userID, _ := c.Get("user_id")

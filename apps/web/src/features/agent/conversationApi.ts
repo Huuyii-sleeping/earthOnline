@@ -32,6 +32,16 @@ export async function createSession(experienceId: string): Promise<ConversationS
   return res.data.data;
 }
 
+// List the conversation sessions that belong to an experience (newest first).
+// Used when reviewing a historical experience to locate its session so we can
+// fetch the messages via listMessages().
+export async function listSessions(experienceId: string): Promise<ConversationSession[]> {
+  const res = await apiClient.get<{ data: ConversationSession[] }>(
+    `/experiences/${experienceId}/sessions`,
+  );
+  return res.data.data;
+}
+
 export async function listMessages(sessionId: string): Promise<ConversationMessage[]> {
   const res = await apiClient.get<{ data: ConversationMessage[] }>(
     `/sessions/${sessionId}/messages`,

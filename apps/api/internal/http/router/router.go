@@ -98,6 +98,7 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 
 		// Conversation sessions
 		authRequired.POST("/experiences/:id/sessions", conversationHandler.CreateSession)
+		authRequired.GET("/experiences/:id/sessions", conversationHandler.ListSessions)
 		authRequired.GET("/sessions/:id/messages", conversationHandler.ListMessages)
 		authRequired.POST("/sessions/:id/messages", conversationHandler.SendMessage)
 		authRequired.POST("/sessions/:id/messages/stream", conversationHandler.SendMessageStream)
