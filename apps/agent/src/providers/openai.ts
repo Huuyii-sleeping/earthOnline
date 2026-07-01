@@ -4,6 +4,9 @@ import type { ChatMessage, LLMProvider, LLMResponse } from "./types.js";
 
 export class OpenAIProvider implements LLMProvider {
   private model: ChatOpenAI;
+  private savedApiKey: string;
+  private savedModelName: string;
+  private savedApiBase?: string;
 
   constructor(apiKey: string, modelName = "gpt-4o", apiBase?: string) {
     const config: ConstructorParameters<typeof ChatOpenAI>[0] = {
@@ -20,6 +23,9 @@ export class OpenAIProvider implements LLMProvider {
       config.configuration = { baseURL: apiBase };
     }
     this.model = new ChatOpenAI(config);
+    this.savedApiKey = apiKey;
+    this.savedModelName = modelName;
+    this.savedApiBase = apiBase;
   }
 
   private toLangChainMessages(messages: ChatMessage[]) {
@@ -49,13 +55,16 @@ export class OpenAIProvider implements LLMProvider {
     // Create a streaming-enabled instance for this call only.
     // We can't reuse the main model because it has streaming: false.
     const lcMessages = this.toLangChainMessages(messages);
-    const streamingModel = new ChatOpenAI({
-      openAIApiKey: this.model.openAIApiKey,
-      modelName: this.model.modelName,
+    const streamConfig: ConstructorParameters<typeof ChatOpenAI>[0] = {
+      openAIApiKey: this.savedApiKey,
+      modelName: this.savedModelName,
       temperature: 0.8,
       streaming: true,
-      configuration: this.model.clientConfig,
-    });
+    };
+    if (this.savedApiBase) {
+      streamConfig!.configuration = { baseURL: this.savedApiBase };
+    }
+    const streamingModel = new ChatOpenAI(streamConfig);
 
     try {
       const stream = await streamingModel.stream(lcMessages);
