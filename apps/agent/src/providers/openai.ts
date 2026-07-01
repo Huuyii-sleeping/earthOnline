@@ -1,6 +1,72 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
-import type { ChatMessage, LLMProvider, LLMResponse } from "./types.js";
+import {
+  HumanMessage,
+  SystemMessage,
+  AIMessage,
+  ToolMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
+import type { ChatMessage, LLMProvider, LLMResponse, ToolDefinition, ToolCall } from "./types.js";
+
+/**
+ * Convert our framework-agnostic ChatMessage[] into LangChain message objects.
+ *
+ * Tool-role messages become ToolMessage so LangChain can correlate them with
+ * the originating tool call via `tool_call_id`.
+ */
+function toLangChainMessages(messages: ChatMessage[]): BaseMessage[] {
+  return messages.map((msg) => {
+    switch (msg.role) {
+      case "system":
+        return new SystemMessage(msg.content);
+      case "user":
+        return new HumanMessage(msg.content);
+      case "assistant": {
+        // If the assistant message carries tool_calls, include them so the
+        // model sees the full conversation history including its own tool
+        // requests.
+        if (msg.tool_calls && msg.tool_calls.length > 0) {
+          return new AIMessage({
+            content: msg.content,
+            tool_calls: msg.tool_calls.map((tc) => ({
+              id: tc.id,
+              name: tc.function.name,
+              args: JSON.parse(tc.function.arguments || "{}"),
+            })),
+          });
+        }
+        return new AIMessage(msg.content);
+      }
+      case "tool":
+        return new ToolMessage({
+          content: msg.content,
+          tool_call_id: msg.tool_call_id ?? "",
+          name: msg.name,
+        });
+      default:
+        return new HumanMessage(msg.content);
+    }
+  });
+}
+
+/**
+ * Convert LangChain's structured tool-calling format into our flat ToolCall[]
+ * type. LangChain's AIMessage.tool_calls is an array of objects with shape
+ * { id, name, args }, which we normalize to { id, type, function: { name, arguments } }.
+ */
+function extractToolCalls(message: AIMessage): ToolCall[] | undefined {
+  const rawCalls = message.tool_calls;
+  if (!rawCalls || rawCalls.length === 0) return undefined;
+
+  return rawCalls.map((tc) => ({
+    id: tc.id ?? "",
+    type: "function" as const,
+    function: {
+      name: tc.name ?? "",
+      arguments: JSON.stringify(tc.args ?? {}),
+    },
+  }));
+}
 
 export class OpenAIProvider implements LLMProvider {
   private model: ChatOpenAI;
@@ -13,12 +79,8 @@ export class OpenAIProvider implements LLMProvider {
       openAIApiKey: apiKey,
       modelName,
       temperature: 0.8,
-      // Do NOT set streaming: true globally — it causes "Premature close"
-      // errors with some OpenAI-compatible APIs (e.g. Aliyun DashScope).
-      // Streaming is handled per-call via the stream() method instead.
       streaming: false,
     };
-    // Allow custom API base URL (e.g. OpenAI-compatible proxies)
     if (apiBase) {
       config.configuration = { baseURL: apiBase };
     }
@@ -28,27 +90,28 @@ export class OpenAIProvider implements LLMProvider {
     this.savedApiBase = apiBase;
   }
 
-  private toLangChainMessages(messages: ChatMessage[]) {
-    return messages.map((msg) => {
-      switch (msg.role) {
-        case "system":
-          return new SystemMessage(msg.content);
-        case "user":
-          return new HumanMessage(msg.content);
-        case "assistant":
-          return new AIMessage(msg.content);
-        default:
-          return new HumanMessage(msg.content);
-      }
-    });
+  /**
+   * Build a private config object for creating new ChatOpenAI instances.
+   * Avoids duplicating the apiBase check across methods.
+   */
+  private buildConfig(
+    overrides: Partial<ConstructorParameters<typeof ChatOpenAI>[0]> = {},
+  ): ConstructorParameters<typeof ChatOpenAI>[0] {
+    const config: ConstructorParameters<typeof ChatOpenAI>[0] = {
+      openAIApiKey: this.savedApiKey,
+      modelName: this.savedModelName,
+      temperature: 0.8,
+      ...overrides,
+    };
+    if (this.savedApiBase) {
+      config!.configuration = { baseURL: this.savedApiBase };
+    }
+    return config;
   }
 
   async chat(messages: ChatMessage[]): Promise<LLMResponse> {
-    // Always use streaming internally, even for non-streaming callers.
-    // Some OpenAI-compatible APIs (e.g. Zhipu/GLM, Aliyun DashScope) are
-    // unreliable with non-streaming invoke — they either return "Premature
-    // close" or hang indefinitely. Streaming mode is consistently reliable
-    // with these APIs, so we collect all tokens and return the full string.
+    // Always use streaming internally — some OpenAI-compatible APIs (Zhipu,
+    // DashScope) hang on non-streaming invoke. Streaming is reliable.
     let content = "";
     for await (const token of this.stream(messages)) {
       content += token;
@@ -57,19 +120,8 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async *stream(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
-    // Create a streaming-enabled instance for this call only.
-    const lcMessages = this.toLangChainMessages(messages);
-    const streamConfig: ConstructorParameters<typeof ChatOpenAI>[0] = {
-      openAIApiKey: this.savedApiKey,
-      modelName: this.savedModelName,
-      temperature: 0.8,
-      streaming: true,
-      timeout: 90000, // 90s timeout for the initial HTTP response
-    };
-    if (this.savedApiBase) {
-      streamConfig!.configuration = { baseURL: this.savedApiBase };
-    }
-    const streamingModel = new ChatOpenAI(streamConfig);
+    const lcMessages = toLangChainMessages(messages);
+    const streamingModel = new ChatOpenAI(this.buildConfig({ streaming: true, timeout: 90000 }));
 
     try {
       const stream = await streamingModel.stream(lcMessages);
@@ -81,12 +133,67 @@ export class OpenAIProvider implements LLMProvider {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      // Some OpenAI-compatible APIs close the SSE connection in a way that
-      // triggers "Premature close" / ERR_STREAM_PREMATURE_CLOSE after all
-      // tokens have been received. Safe to ignore.
       if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
         return;
       }
+      throw err;
+    }
+  }
+
+  /**
+   * Chat with tool-calling support.
+   *
+   * Uses LangChain's `.bindTools()` to attach tool definitions, then invokes
+   * the model. If the model decides to call tools, the response will contain
+   * `tool_calls` — the agent loop is responsible for executing them and
+   * feeding results back.
+   *
+   * This method uses non-streaming invoke because:
+   * 1. Tool calls need the complete structured response, not token-by-token.
+   * 2. Most OpenAI-compatible APIs handle tool calls via non-streaming fine
+   *    (the "Premature close" issue primarily affects plain text completion).
+   * 3. If invoke does fail, we fall back to streaming and skip tool support.
+   */
+  async chatWithTools(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMResponse> {
+    const lcMessages = toLangChainMessages(messages);
+
+    // Convert our ToolDefinition[] to LangChain's format.
+    const lcTools = tools.map((t) => ({
+      type: "function" as const,
+      function: {
+        name: t.function.name,
+        description: t.function.description,
+        parameters: t.function.parameters,
+      },
+    }));
+
+    const model = new ChatOpenAI(this.buildConfig({ streaming: false }));
+
+    try {
+      const boundModel = model.bindTools(lcTools);
+      const result = (await boundModel.invoke(lcMessages)) as AIMessage;
+
+      const toolCalls = extractToolCalls(result);
+
+      return {
+        content: result.content.toString(),
+        tool_calls: toolCalls,
+        finish_reason: toolCalls ? "tool_calls" : "stop",
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+
+      // Fallback: if invoke fails (e.g. Premature close on some APIs),
+      // stream the response without tool support. The agent loop will get
+      // a plain text response and treat it as a normal reply.
+      if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
+        let content = "";
+        for await (const token of this.stream(messages)) {
+          content += token;
+        }
+        return { content, finish_reason: "stop" };
+      }
+
       throw err;
     }
   }

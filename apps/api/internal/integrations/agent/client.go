@@ -34,6 +34,9 @@ type SendMessageRequest struct {
 	Content      string                 `json:"content"`
 	Context      map[string]interface{} `json:"context,omitempty"`
 	AgentRuntime *AgentRuntimePayload   `json:"agent_runtime,omitempty"`
+	// UserID is passed so the Agent can use it as tool context — tools
+	// call back to the Go API to fetch user-specific data (medals, etc.).
+	UserID string `json:"user_id,omitempty"`
 }
 
 // AgentRuntimePayload carries browser-side LLM credentials so the Agent

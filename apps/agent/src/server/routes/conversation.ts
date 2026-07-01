@@ -4,12 +4,10 @@ import {
   streamConversation,
   generateConversationSummary,
 } from "../../graphs/conversation.graph.js";
-import {
-  getLLMProvider,
-  getLLMProviderFromRuntime,
-  type AgentRuntimeConfig,
-} from "../../providers/index.js";
+import { getLLMProvider, type AgentRuntimeConfig } from "../../providers/index.js";
 import { checkSafety } from "../../safety/index.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
+import type { ToolContext } from "../../providers/types.js";
 
 interface SendMessageBody {
   session_id: string;
@@ -17,9 +15,23 @@ interface SendMessageBody {
   context?: Record<string, unknown>;
   history?: { role: "user" | "assistant"; content: string }[];
   agent_runtime?: AgentRuntimeConfig | null;
+  /** User ID for tool context — passed by the Go API. */
+  user_id?: string;
 }
 
 export async function conversationRoutes(app: FastifyInstance) {
+  // Create a shared tool registry instance.
+  const toolRegistry = createDefaultToolRegistry();
+
+  // Helper: build tool context from request body.
+  function buildToolContext(body: SendMessageBody): ToolContext | undefined {
+    if (!body.user_id) return undefined;
+    return {
+      userId: body.user_id,
+      sessionId: body.session_id,
+    };
+  }
+
   // Non-streaming: send a message and get a reply
   app.post("/sessions/:sessionId/messages", async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
@@ -30,9 +42,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     const history = body.history || [];
+    const toolContext = buildToolContext(body);
 
-    // Safety review before processing — short-circuit with a safe response
-    // when the user message contains self-harm or violence signals.
+    // Safety review before processing
     const safety = checkSafety(body.content);
     if (!safety.safe) {
       request.log.warn({ reason: safety.reason }, "safety check triggered");
@@ -45,7 +57,13 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await processConversation(history, body.content, body.agent_runtime);
+      const result = await processConversation(
+        history,
+        body.content,
+        body.agent_runtime,
+        toolRegistry,
+        toolContext,
+      );
       return {
         reply: result.reply,
         done: result.done,
@@ -71,6 +89,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     const history = body.history || [];
+    const toolContext = buildToolContext(body);
 
     // Safety check
     const safety = checkSafety(body.content);
@@ -95,7 +114,13 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     try {
       let fullReply = "";
-      for await (const token of streamConversation(history, body.content, body.agent_runtime)) {
+      for await (const token of streamConversation(
+        history,
+        body.content,
+        body.agent_runtime,
+        toolRegistry,
+        toolContext,
+      )) {
         fullReply += token;
         reply.raw.write(`data: ${JSON.stringify({ token })}\n\n`);
       }
@@ -137,7 +162,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
   });
 
-  // SSE streaming endpoint
+  // SSE streaming endpoint (demo)
   app.get("/sessions/:sessionId/stream", async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
 
@@ -149,11 +174,9 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     reply.raw.write(`event: ready\ndata: ${JSON.stringify({ sessionId })}\n\n`);
 
-    // Try to stream from LLM
     try {
       const provider = getLLMProvider();
 
-      // Build a simple context for streaming demo
       const messages = [
         { role: "system" as const, content: "你是经历成就官的 Agent。正在准备与用户对话。" },
         { role: "user" as const, content: "你好" },
@@ -166,7 +189,6 @@ export async function conversationRoutes(app: FastifyInstance) {
       reply.raw.write(`event: done\ndata: ${JSON.stringify({ ok: true })}\n\n`);
     } catch (error) {
       request.log.error(error, "stream failed");
-      // Fallback: send mock tokens
       const fallbackText = "Agent 服务正在启动中，请稍后再试。";
       for (const char of fallbackText) {
         reply.raw.write(`event: token\ndata: ${JSON.stringify({ content: char })}\n\n`);

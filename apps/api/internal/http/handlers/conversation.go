@@ -168,6 +168,7 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 	agentReq := &agent.SendMessageRequest{
 		SessionID: sessionID,
 		Content:   req.Content,
+		UserID:    userID.(string),
 	}
 
 	// Forward browser-side LLM credentials if provided

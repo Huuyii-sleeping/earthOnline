@@ -2,20 +2,12 @@ import {
   conversationFollowupPromptV1,
   experienceSummaryPromptV1,
 } from "../prompts/conversation-followup.v1.js";
-import {
-  getLLMProvider,
-  getLLMProviderFromRuntime,
-  type AgentRuntimeConfig,
-} from "../providers/index.js";
+import { getLLMProviderFromRuntime, type AgentRuntimeConfig } from "../providers/index.js";
 import { checkSafety } from "../safety/index.js";
 import type { ChatMessage } from "../providers/types.js";
-
-export interface ConversationState {
-  messages: ChatMessage[];
-  userMessage: string;
-  history: { role: "user" | "assistant"; content: string }[];
-  shouldSummarize: boolean;
-}
+import type { ToolContext } from "../providers/types.js";
+import { runReActLoop, streamConversationWithTools } from "../agent/react-loop.js";
+import type { ToolRegistry } from "../tools/registry.js";
 
 export interface ConversationResult {
   reply: string;
@@ -23,18 +15,35 @@ export interface ConversationResult {
 }
 
 /**
- * Process a user message through the conversation graph.
- * 1. Safety check
- * 2. Build context from history
- * 3. Call LLM for response
- * 4. Detect if user wants to generate summary/medal
+ * Process a user message through the ReAct conversation loop.
+ *
+ * If tools are available, the Agent can call them to enrich its understanding
+ * of the user's context (existing medals, growth profile, etc.) before
+ * generating a reply. If no tools are provided, falls back to plain chat.
+ *
+ * @param tools - Tool registry (null if tools unavailable)
+ * @param context - Tool execution context (userId, sessionId)
  */
 export async function processConversation(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
   runtime?: AgentRuntimeConfig | null,
+  tools?: ToolRegistry | null,
+  context?: ToolContext,
 ): Promise<ConversationResult> {
-  // 1. Safety check
+  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
+  const provider = getLLMProviderFromRuntime(runtime);
+
+  // If tools are available, use the ReAct loop for multi-step reasoning.
+  if (tools && tools.getDefinitions().length > 0) {
+    const result = await runReActLoop(provider, tools, systemPrompt, history, userMessage, context);
+    return {
+      reply: result.reply,
+      done: result.done,
+    };
+  }
+
+  // Fallback: plain chat without tools (original behavior).
   const safetyResult = checkSafety(userMessage);
   if (!safetyResult.safe) {
     return {
@@ -43,21 +52,14 @@ export async function processConversation(
     };
   }
 
-  // 2. Detect if user wants to skip to generation
+  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
+  const response = await provider.chat(messages);
+
   const skipKeywords = ["生成奖章", "直接生成", "可以了", "总结", "generate medal"];
   const wantsToGenerate = skipKeywords.some((kw) =>
     userMessage.toLowerCase().includes(kw.toLowerCase()),
   );
 
-  // 3. Build messages for LLM
-  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
-  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
-
-  // 4. Call LLM
-  const provider = getLLMProviderFromRuntime(runtime);
-  const response = await provider.chat(messages);
-
-  // 5. Check if agent thinks it's ready to summarize
   const summaryKeywords = ["总结", "准备好了", "可以生成", "ready to generate", "summary"];
   const isReady =
     wantsToGenerate ||
@@ -71,26 +73,44 @@ export async function processConversation(
 
 /**
  * Stream a conversation response token by token.
- * Returns an async generator that yields text chunks.
+ *
+ * Uses a hybrid approach: if tools are available and the message warrants
+ * context enrichment, runs the ReAct loop first (non-streaming), then
+ * yields the final reply. Otherwise, streams directly for low latency.
+ *
+ * @param tools - Tool registry (null if tools unavailable)
+ * @param context - Tool execution context (userId, sessionId)
  */
 export async function* streamConversation(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
   runtime?: AgentRuntimeConfig | null,
+  tools?: ToolRegistry | null,
+  context?: ToolContext,
 ): AsyncGenerator<string, void, unknown> {
-  // 1. Safety check — if triggered, yield the safe response as a single chunk
+  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
+  const provider = getLLMProviderFromRuntime(runtime);
+
+  if (tools && tools.getDefinitions().length > 0) {
+    yield* streamConversationWithTools(
+      provider,
+      tools,
+      systemPrompt,
+      history,
+      userMessage,
+      context,
+    );
+    return;
+  }
+
+  // Fallback: plain streaming without tools.
   const safetyResult = checkSafety(userMessage);
   if (!safetyResult.safe) {
     yield safetyResult.safeResponse!;
     return;
   }
 
-  // 2. Build messages for LLM
-  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
   const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
-
-  // 3. Stream from LLM
-  const provider = getLLMProviderFromRuntime(runtime);
   yield* provider.stream(messages);
 }
 
@@ -138,16 +158,13 @@ export async function generateConversationSummary(
   const provider = getLLMProviderFromRuntime(runtime);
   const response = await provider.chat(messages);
 
-  // Parse JSON from response
   try {
-    // Strip markdown code fences if present
     let content = response.content.trim();
     if (content.startsWith("```")) {
       content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     }
     return JSON.parse(content);
   } catch {
-    // If parsing fails, return a basic summary
     return {
       experienceSummary: "无法自动生成总结，请用户确认。",
       keyMoments: [],

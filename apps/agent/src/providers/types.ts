@@ -1,18 +1,129 @@
+/**
+ * Core type definitions for the LLM provider layer.
+ *
+ * The types here are consumed by every graph and route, so they must stay
+ * framework-agnostic — no LangChain-specific imports leak through.
+ */
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+/**
+ * A single message in a conversation.
+ *
+ * `tool` role messages carry the *result* of a tool call back to the model so
+ * it can reason about the returned data.  `assistant` messages may carry
+ * `tool_calls` when the model decides to invoke a tool instead of (or in
+ * addition to) producing a text reply.
+ */
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /** Present only on assistant messages that request tool execution. */
+  tool_calls?: ToolCall[];
+  /** Present only on tool-role messages — links the result to its call. */
+  tool_call_id?: string;
+  /** Human-readable name of the tool (for tool-role messages). */
+  name?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Tool calling
+// ---------------------------------------------------------------------------
+
+/**
+ * A tool definition expressed in the OpenAI function-calling JSON Schema
+ * format.  This is what gets passed to `LLMProvider.chatWithTools()`.
+ */
+export interface ToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>; // JSON Schema
+  };
+}
+
+/**
+ * A tool call requested by the model.
+ * The agent loop executes the named tool with the given arguments and feeds
+ * the result back as a `tool`-role message.
+ */
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string; // raw JSON string from the model
+  };
+}
+
+/**
+ * A function that the agent loop can call when the model requests it.
+ *
+ * The handler receives the parsed JSON arguments and a context object that
+ * may contain user/session metadata.  It returns a string that will be sent
+ * back to the model as a tool-result message.
+ */
+export type ToolHandler = (args: Record<string, unknown>, context?: ToolContext) => Promise<string>;
+
+/**
+ * Context passed to tool handlers.  This is how the Agent route gives tools
+ * access to session-scoped data (user ID, session ID, etc.) without each tool
+ * needing to parse HTTP requests.
+ */
+export interface ToolContext {
+  userId?: string;
+  sessionId?: string;
+  /** Additional context-specific data set by the caller. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * A tool that has been registered with the agent — definition + handler.
+ */
+export interface RegisteredTool {
+  definition: ToolDefinition;
+  handler: ToolHandler;
+}
+
+// ---------------------------------------------------------------------------
+// LLM responses
+// ---------------------------------------------------------------------------
 
 export interface LLMResponse {
   content: string;
+  /** Present when the model wants to call tools instead of (or before)
+   *  producing a final text reply. */
+  tool_calls?: ToolCall[];
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
   };
+  /** Finish reason from the model: "stop" | "tool_calls" | "length". */
+  finish_reason?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Provider interface
+// ---------------------------------------------------------------------------
+
 export interface LLMProvider {
+  /** Plain text chat — no tool calling. Returns a complete response. */
   chat(messages: ChatMessage[]): Promise<LLMResponse>;
+
+  /** Streaming chat — yields text tokens. Does not support tool calls. */
   stream(messages: ChatMessage[]): AsyncGenerator<string, void, unknown>;
+
+  /**
+   * Chat with tools available. The model may choose to call one or more tools
+   * (returned in `LLMResponse.tool_calls`) or produce a normal text reply.
+   *
+   * The caller (agent loop) is responsible for executing tool calls and
+   * feeding results back via subsequent `chatWithTools` calls with
+   * `tool`-role messages.
+   */
+  chatWithTools(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMResponse>;
 }

@@ -62,6 +62,7 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 	growthProfileHandler := handlers.NewGrowthProfileHandler(db, growthProfileService, logger)
 	yearReviewService := yearreview.NewService(db, agentClient, logger)
 	yearReviewHandler := handlers.NewYearReviewHandler(db, yearReviewService, taskQueueClient, logger)
+	agentToolHandler := handlers.NewAgentToolHandler(db, logger)
 
 	api := r.Group("/api/v1")
 
@@ -163,4 +164,8 @@ func Setup(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Co
 		authRequired.POST("/annual-reviews/generate", yearReviewHandler.GenerateYearReview)
 		authRequired.DELETE("/annual-reviews/:year", yearReviewHandler.DeleteYearReview)
 	}
+
+	// Internal tool endpoints — for Agent service callback only.
+	// No JWT auth; uses X-Internal-User-Id header.
+	agentToolHandler.RegisterRoutes(api)
 }
