@@ -445,7 +445,7 @@ func (h *ConversationHandler) GenerateSummary(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	// Call Agent service for summary
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
 
 	var runtime *agent.AgentRuntimePayload

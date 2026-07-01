@@ -45,10 +45,27 @@ export class OpenAIProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[]): Promise<LLMResponse> {
     const lcMessages = this.toLangChainMessages(messages);
-    const result = await this.model.invoke(lcMessages);
-    return {
-      content: result.content.toString(),
-    };
+    try {
+      const result = await this.model.invoke(lcMessages);
+      return {
+        content: result.content.toString(),
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      // Some OpenAI-compatible APIs (e.g. Zhipu/GLM, Aliyun DashScope) close
+      // the HTTP connection prematurely on non-streaming calls, causing
+      // "Premature close" / ERR_STREAM_PREMATURE_CLOSE even though the full
+      // response was generated server-side. Fall back to streaming mode,
+      // which is more robust with these APIs.
+      if (errorMsg.includes("Premature close") || errorMsg.includes("ERR_STREAM_PREMATURE_CLOSE")) {
+        let content = "";
+        for await (const token of this.stream(messages)) {
+          content += token;
+        }
+        return { content };
+      }
+      throw err;
+    }
   }
 
   async *stream(messages: ChatMessage[]): AsyncGenerator<string, void, unknown> {
