@@ -191,10 +191,12 @@ export async function semanticSafetyCheck(
       needsSemanticCheck: false,
     };
   } catch {
-    // LLM check failed — degrade gracefully.
-    // Don't block the conversation, but don't clear the needsSemanticCheck flag
-    // either (the caller can decide whether to proceed).
-    return { safe: true, riskLevel: "none" };
+    // LLM check failed — be conservative. If Layer 1 flagged negative
+    // emotion signals, we can't confirm the message is safe. Return
+    // riskLevel="low" so the caller knows there's uncertainty, but
+    // don't block the conversation (fail-open for usability, but
+    // flag the uncertainty rather than declaring "none").
+    return { safe: true, riskLevel: "low", needsSemanticCheck: false };
   }
 }
 
@@ -228,6 +230,10 @@ export async function fullSafetyCheck(
     if (!layer2.safe) {
       return layer2;
     }
+    // Return layer2 (not layer1) — it has the correct riskLevel and
+    // needsSemanticCheck=false. Returning layer1 would discard the
+    // LLM's risk assessment and leave needsSemanticCheck=true.
+    return layer2;
   }
 
   return layer1;

@@ -31,8 +31,10 @@ export async function processConversation(
   tools?: ToolRegistry | null,
   context?: ToolContext,
   summary?: string,
+  systemPromptOverride?: string,
 ): Promise<ConversationResult> {
-  const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
+  const systemPrompt =
+    systemPromptOverride || runtime?.system_prompt || conversationFollowupPromptV1.template;
   const provider = getLLMProviderFromRuntime(runtime);
 
   // If tools are available, use the ReAct loop for multi-step reasoning.

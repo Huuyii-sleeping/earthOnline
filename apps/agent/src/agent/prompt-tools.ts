@@ -68,14 +68,33 @@ export function parseToolCallsFromText(text: string): {
 } {
   const trimmed = text.trim();
 
-  // Try to find a JSON object at the start
-  const jsonMatch = trimmed.match(/^\{[\s\S]*\}/);
-  if (!jsonMatch) {
+  // Extract the first complete JSON object using bracket counting
+  // (greedy regex would over-match if the text has multiple } chars).
+  if (!trimmed.startsWith("{")) {
     return { toolCalls: [], remainingText: text };
   }
 
+  let braceDepth = 0;
+  let jsonEnd = -1;
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === "{") braceDepth++;
+    else if (trimmed[i] === "}") {
+      braceDepth--;
+      if (braceDepth === 0) {
+        jsonEnd = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (jsonEnd === -1) {
+    return { toolCalls: [], remainingText: text };
+  }
+
+  const jsonStr = trimmed.slice(0, jsonEnd);
+
   try {
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonStr);
 
     if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
       const toolCalls: ParsedToolCall[] = parsed.tool_calls
@@ -92,7 +111,7 @@ export function parseToolCallsFromText(text: string): {
         });
 
       if (toolCalls.length > 0) {
-        const remainingText = trimmed.slice(jsonMatch[0].length).trim();
+        const remainingText = trimmed.slice(jsonEnd).trim();
         return { toolCalls, remainingText };
       }
     }
@@ -146,18 +165,18 @@ export async function* runPromptBasedToolLoop(
       const { toolCalls, remainingText } = parseToolCallsFromText(fullReply);
 
       if (toolCalls.length > 0) {
-        // Execute tools
-        yield {
-          type: "tool_calls",
-          tool_calls: toolCalls.map((tc) => ({
-            id: `prompt_tc_${iteration}_${tc.name}`,
-            type: "function" as const,
-            function: {
-              name: tc.name,
-              arguments: JSON.stringify(tc.args),
-            },
-          })),
-        };
+        // Execute tools — use index in ID to avoid collisions when
+        // the model requests the same tool twice in one turn.
+        const fakeToolCalls = toolCalls.map((tc, idx) => ({
+          id: `prompt_tc_${iteration}_${idx}_${tc.name}`,
+          type: "function" as const,
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.args),
+          },
+        }));
+
+        yield { type: "tool_calls", tool_calls: fakeToolCalls };
 
         // Add assistant reply to messages
         modifiedMessages.push({
@@ -166,15 +185,6 @@ export async function* runPromptBasedToolLoop(
         });
 
         // Execute and add tool results
-        const fakeToolCalls = toolCalls.map((tc) => ({
-          id: `prompt_tc_${iteration}_${tc.name}`,
-          type: "function" as const,
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.args),
-          },
-        }));
-
         const results = await tools.executeAll(fakeToolCalls, context);
 
         for (const tc of fakeToolCalls) {

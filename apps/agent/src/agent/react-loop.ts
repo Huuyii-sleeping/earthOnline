@@ -183,6 +183,13 @@ export async function runReActLoop(
     }
   }
 
+  // If we exhausted all iterations (model kept requesting tools), get a
+  // final reply without tools — same pattern as the streaming version.
+  if (usedTools && (!lastResponse?.content || lastResponse.content.trim() === "")) {
+    const finalResponse = await provider.chat(messages);
+    lastResponse = finalResponse;
+  }
+
   const finalReply = lastResponse?.content || "抱歉，我暂时无法回复。";
   const done = detectReadiness(finalReply, userMessage);
 
@@ -264,6 +271,10 @@ export async function* runReActLoopStream(
       // If the model wants tools, execute them and loop back.
       if (firstChunk.type === "tool_calls") {
         const toolCalls = firstChunk.tool_calls;
+
+        // Yield the tool_calls chunk so the caller (SSE handler) can
+        // show a "thinking" indicator to the user.
+        yield firstChunk;
 
         // Add the assistant's tool-call message to the conversation.
         messages.push({

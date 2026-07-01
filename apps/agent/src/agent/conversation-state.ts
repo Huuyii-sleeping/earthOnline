@@ -175,16 +175,35 @@ export function transition(
       }
       break;
 
-    case "REFLECT":
+    case "REFLECT": {
       // If the user corrects the Agent's understanding, go back to PROBE.
       if (containsKeyword(userMessage, CORRECTION_KEYWORDS)) {
         next.state = "PROBE";
         next.probeCount = 0;
-      } else {
-        // Assume confirmation (or at least no objection) → READY.
+        break;
+      }
+
+      // Only transition to READY on explicit confirmation.
+      const CONFIRM_KEYWORDS = [
+        "对",
+        "没错",
+        "确认",
+        "是的",
+        "嗯嗯",
+        "对的",
+        "正确",
+        "yes",
+        "correct",
+        "right",
+        "yeah",
+      ];
+      if (containsKeyword(userMessage, CONFIRM_KEYWORDS)) {
         next.state = "READY";
       }
+      // Otherwise stay in REFLECT — the user's message was neither a
+      // correction nor a confirmation, so keep waiting for explicit input.
       break;
+    }
 
     case "READY":
       // Stay in READY until generation starts.

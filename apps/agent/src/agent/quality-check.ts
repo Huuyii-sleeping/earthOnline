@@ -172,14 +172,20 @@ export async function llmJudgeQuality(
 
     const parsed = JSON.parse(text);
 
-    const issues: QualityIssue[] = (parsed.issues || []).map((desc: string) => ({
-      type: "relevance" as const,
-      description: desc,
-      severity: "low" as const,
-    }));
+    // Explicit type check — LLM may return "true"/"false" as strings
+    const shouldRetry = parsed.should_retry === true;
+    const issues: QualityIssue[] = Array.isArray(parsed.issues)
+      ? parsed.issues
+          .filter((desc: unknown): desc is string => typeof desc === "string")
+          .map((desc: string) => ({
+            type: "relevance" as const,
+            description: desc,
+            severity: "low" as const,
+          }))
+      : [];
 
     return {
-      passed: !parsed.should_retry && issues.length === 0,
+      passed: !shouldRetry && issues.length === 0,
       issues,
     };
   } catch {

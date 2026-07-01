@@ -86,6 +86,23 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     try {
+      // Build state context from request (validate conversation_state)
+      const validStates: ConversationState[] = [
+        "INTAKE",
+        "PROBE",
+        "REFLECT",
+        "READY",
+        "GENERATING",
+      ];
+      const stateContext: StateContext =
+        body.conversation_state &&
+        validStates.includes(body.conversation_state as ConversationState)
+          ? { ...initialState(), state: body.conversation_state as ConversationState }
+          : initialState();
+
+      const basePrompt = body.agent_runtime?.system_prompt || conversationFollowupPromptV1.template;
+      const systemPrompt = buildSystemPrompt(basePrompt, stateContext);
+
       const result = await processConversation(
         history,
         body.content,
@@ -93,11 +110,20 @@ export async function conversationRoutes(app: FastifyInstance) {
         toolRegistry,
         toolContext,
         body.summary_text,
+        systemPrompt,
       );
+
+      // Compute the next conversation state
+      const nextState = transition(stateContext, body.content, result.reply);
+
       return {
         reply: result.reply,
         done: result.done,
         session_id: sessionId,
+        conversation_state: nextState.state,
+        turn_count: nextState.turnCount,
+        probe_count: nextState.probeCount,
+        collected_dimensions: nextState.collectedDimensions,
       };
     } catch (error) {
       request.log.error(error, "conversation failed");
