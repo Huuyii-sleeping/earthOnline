@@ -62,6 +62,7 @@ export async function generateSummary(sessionId: string): Promise<ConversationSu
   const res = await apiClient.post<{ data: ConversationSummary }>(
     `/sessions/${sessionId}/summary`,
     { agent_runtime: agentRuntime },
+    { timeout: 120000 },
   );
   return res.data.data;
 }

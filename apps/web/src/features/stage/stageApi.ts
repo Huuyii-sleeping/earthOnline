@@ -71,9 +71,13 @@ export async function generateStageSummary(periodType: PeriodType): Promise<Stag
       }
     : undefined;
 
-  const res = await apiClient.post<{ data: StageSummary }>("/stage-summaries/generate", {
-    period_type: periodType,
-    agent_runtime: agentRuntime,
-  });
+  const res = await apiClient.post<{ data: StageSummary }>(
+    "/stage-summaries/generate",
+    {
+      period_type: periodType,
+      agent_runtime: agentRuntime,
+    },
+    { timeout: 120000 },
+  );
   return res.data.data;
 }

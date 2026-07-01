@@ -83,10 +83,14 @@ export async function generateAnnualReview(year: number): Promise<AnnualReview> 
       }
     : undefined;
 
-  const res = await apiClient.post<{ data: AnnualReview }>(`/annual-reviews/generate`, {
-    year,
-    agent_runtime: agentRuntime,
-  });
+  const res = await apiClient.post<{ data: AnnualReview }>(
+    `/annual-reviews/generate`,
+    {
+      year,
+      agent_runtime: agentRuntime,
+    },
+    { timeout: 180000 },
+  );
   return res.data.data;
 }
 

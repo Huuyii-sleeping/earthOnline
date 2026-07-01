@@ -28,6 +28,7 @@ export async function generateMedal(experienceId: string, sessionId: string): Pr
   const res = await apiClient.post<{ data: Medal }>(
     `/experiences/${experienceId}/medals/generate`,
     { session_id: sessionId, agent_runtime: agentRuntime } as GenerateMedalRequest,
+    { timeout: 120000 },
   );
   return res.data.data;
 }
@@ -70,11 +71,15 @@ export async function regenerateMeaning(
       }
     : undefined;
 
-  const res = await apiClient.post<{ data: Medal }>(`/medals/${id}/regenerate/meaning`, {
-    direction,
-    user_input: userInput,
-    agent_runtime: agentRuntime,
-  });
+  const res = await apiClient.post<{ data: Medal }>(
+    `/medals/${id}/regenerate/meaning`,
+    {
+      direction,
+      user_input: userInput,
+      agent_runtime: agentRuntime,
+    },
+    { timeout: 120000 },
+  );
   return res.data.data;
 }
 

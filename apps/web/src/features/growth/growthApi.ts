@@ -69,10 +69,14 @@ export async function refreshGrowthProfile(
       }
     : undefined;
 
-  const res = await apiClient.post<{ data: GrowthProfile }>(`/growth-profile/refresh`, {
-    scope,
-    agent_runtime: agentRuntime,
-  });
+  const res = await apiClient.post<{ data: GrowthProfile }>(
+    `/growth-profile/refresh`,
+    {
+      scope,
+      agent_runtime: agentRuntime,
+    },
+    { timeout: 120000 },
+  );
   return res.data.data;
 }
 
