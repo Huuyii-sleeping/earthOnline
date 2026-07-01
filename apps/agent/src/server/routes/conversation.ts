@@ -3,13 +3,17 @@ import {
   processConversation,
   generateConversationSummary,
 } from "../../graphs/conversation.graph.js";
-import { getLLMProvider, type AgentRuntimeConfig } from "../../providers/index.js";
+import {
+  getLLMProvider,
+  getLLMProviderFromRuntime,
+  type AgentRuntimeConfig,
+} from "../../providers/index.js";
 import { checkSafety } from "../../safety/index.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
-import type { ToolContext } from "../../providers/types.js";
+import type { ToolContext, ChatMessage } from "../../providers/types.js";
 import { runReActLoopStream } from "../../agent/react-loop.js";
-import { getLLMProviderFromRuntime } from "../../providers/index.js";
 import { conversationFollowupPromptV1 } from "../../prompts/conversation-followup.v1.js";
+import { ContextCompressor } from "../../utils/context-compressor.js";
 
 interface SendMessageBody {
   session_id: string;
@@ -19,6 +23,17 @@ interface SendMessageBody {
   agent_runtime?: AgentRuntimeConfig | null;
   /** User ID for tool context — passed by the Go API. */
   user_id?: string;
+  /** Compressed conversation summary (for context window management). */
+  summary_text?: string;
+  /** Current conversation state machine phase. */
+  conversation_state?: string;
+}
+
+// Compress endpoint request body
+interface CompressBody {
+  history?: { role: "user" | "assistant"; content: string }[];
+  existing_summary?: string;
+  agent_runtime?: AgentRuntimeConfig | null;
 }
 
 export async function conversationRoutes(app: FastifyInstance) {
@@ -70,6 +85,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         body.agent_runtime,
         toolRegistry,
         toolContext,
+        body.summary_text,
       );
       return {
         reply: result.reply,
@@ -134,6 +150,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         history,
         body.content,
         toolContext,
+        body.summary_text,
       )) {
         switch (chunk.type) {
           case "tool_calls":
@@ -224,5 +241,36 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     reply.raw.end();
+  });
+
+  // Compress conversation history — called by Go API when token count is high
+  app.post("/sessions/:sessionId/compress", async (request, reply) => {
+    const body = request.body as CompressBody;
+
+    if (!body?.history || body.history.length === 0) {
+      return { summary: body.existing_summary || "" };
+    }
+
+    try {
+      const provider = getLLMProviderFromRuntime(body.agent_runtime);
+      const modelName = body.agent_runtime?.model;
+      const compressor = new ContextCompressor(provider, modelName);
+
+      // Convert history to ChatMessage format for the compressor
+      const messages: ChatMessage[] = body.history.map((h) => ({
+        role: h.role === "user" ? ("user" as const) : ("assistant" as const),
+        content: h.content,
+      }));
+
+      const compressed = await compressor.compress(messages, body.existing_summary);
+
+      return { summary: compressed.summary };
+    } catch (error) {
+      request.log.error(error, "compression failed");
+      return reply.code(500).send({
+        error: "compression failed",
+        summary: body.existing_summary || "",
+      });
+    }
   });
 }

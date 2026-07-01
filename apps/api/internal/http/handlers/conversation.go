@@ -166,9 +166,11 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 	defer cancel()
 
 	agentReq := &agent.SendMessageRequest{
-		SessionID: sessionID,
-		Content:   req.Content,
-		UserID:    userID.(string),
+		SessionID:         sessionID,
+		Content:           req.Content,
+		UserID:            userID.(string),
+		SummaryText:       session.SummaryText,
+		ConversationState: session.CurrentState,
 	}
 
 	// Forward browser-side LLM credentials if provided
@@ -264,9 +266,11 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 	defer cancel()
 
 	agentReq := &agent.SendMessageRequest{
-		SessionID: sessionID,
-		Content:   req.Content,
-		UserID:    userID.(string),
+		SessionID:         sessionID,
+		Content:           req.Content,
+		UserID:            userID.(string),
+		SummaryText:       session.SummaryText,
+		ConversationState: session.CurrentState,
 	}
 
 	if req.AgentRuntime != nil && req.AgentRuntime.APIKey != "" {

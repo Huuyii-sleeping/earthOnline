@@ -66,6 +66,13 @@ type ConversationSession struct {
 	ExperienceID   string `gorm:"type:uuid;not null;index" json:"experience_id"`
 	AgentProfileID string `gorm:"type:uuid;not null" json:"agent_profile_id"`
 	Status         string `gorm:"type:varchar(50);not null;default:'active'" json:"status"`
+	// SummaryText is a compressed summary of older conversation messages.
+	// Used by the Agent for context window management — when history exceeds
+	// the model's token limit, older messages are summarized and stored here.
+	SummaryText string `gorm:"type:text" json:"summary_text"`
+	// CurrentState tracks the conversation state machine phase.
+	// Values: INTAKE | PROBE | REFLECT | READY | GENERATING
+	CurrentState string `gorm:"type:varchar(50);default:'INTAKE'" json:"current_state"`
 }
 
 func (ConversationSession) TableName() string { return "conversation_sessions" }

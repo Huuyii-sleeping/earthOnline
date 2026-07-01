@@ -37,6 +37,10 @@ type SendMessageRequest struct {
 	// UserID is passed so the Agent can use it as tool context — tools
 	// call back to the Go API to fetch user-specific data (medals, etc.).
 	UserID string `json:"user_id,omitempty"`
+	// SummaryText is the compressed conversation summary (for context window management).
+	SummaryText string `json:"summary_text,omitempty"`
+	// ConversationState is the current state machine phase (INTAKE/PROBE/REFLECT/READY).
+	ConversationState string `json:"conversation_state,omitempty"`
 }
 
 // AgentRuntimePayload carries browser-side LLM credentials so the Agent

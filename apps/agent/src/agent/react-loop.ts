@@ -78,15 +78,26 @@ function buildMessages(
   systemPrompt: string,
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
+  summary?: string,
 ): ChatMessage[] {
-  return [
-    { role: "system", content: systemPrompt },
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
+
+  if (summary) {
+    messages.push({
+      role: "system",
+      content: `之前的对话摘要：\n${summary}`,
+    });
+  }
+
+  messages.push(
     ...history.map((h) => ({
       role: h.role === "user" ? ("user" as const) : ("assistant" as const),
       content: h.content,
     })),
-    { role: "user", content: userMessage },
-  ];
+  );
+  messages.push({ role: "user", content: userMessage });
+
+  return messages;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +111,7 @@ export async function runReActLoop(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
   context?: ToolContext,
+  summary?: string,
 ): Promise<ReActResult> {
   const steps: ReActStep[] = [];
 
@@ -113,7 +125,7 @@ export async function runReActLoop(
     };
   }
 
-  const messages = buildMessages(systemPrompt, history, userMessage);
+  const messages = buildMessages(systemPrompt, history, userMessage, summary);
   const toolDefs = tools?.getDefinitions() ?? [];
 
   let lastResponse: LLMResponse | null = null;
@@ -199,6 +211,7 @@ export async function* runReActLoopStream(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
   context?: ToolContext,
+  summary?: string,
 ): AsyncGenerator<StreamChunk, void, unknown> {
   // Safety check — short-circuit before any LLM call.
   const safety = checkSafety(userMessage);
@@ -208,7 +221,7 @@ export async function* runReActLoopStream(
     return;
   }
 
-  const messages = buildMessages(systemPrompt, history, userMessage);
+  const messages = buildMessages(systemPrompt, history, userMessage, summary);
   const toolDefs = tools?.getDefinitions() ?? [];
 
   // If no tools are available, skip the tool-calling logic entirely
@@ -308,6 +321,7 @@ export async function* streamConversationWithTools(
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
   context?: ToolContext,
+  summary?: string,
 ): AsyncGenerator<string, void, unknown> {
   for await (const chunk of runReActLoopStream(
     provider,
@@ -316,6 +330,7 @@ export async function* streamConversationWithTools(
     history,
     userMessage,
     context,
+    summary,
   )) {
     if (chunk.type === "token") {
       yield chunk.content;

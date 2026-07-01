@@ -30,13 +30,22 @@ export async function processConversation(
   runtime?: AgentRuntimeConfig | null,
   tools?: ToolRegistry | null,
   context?: ToolContext,
+  summary?: string,
 ): Promise<ConversationResult> {
   const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
   const provider = getLLMProviderFromRuntime(runtime);
 
   // If tools are available, use the ReAct loop for multi-step reasoning.
   if (tools && tools.getDefinitions().length > 0) {
-    const result = await runReActLoop(provider, tools, systemPrompt, history, userMessage, context);
+    const result = await runReActLoop(
+      provider,
+      tools,
+      systemPrompt,
+      history,
+      userMessage,
+      context,
+      summary,
+    );
     return {
       reply: result.reply,
       done: result.done,
@@ -52,7 +61,7 @@ export async function processConversation(
     };
   }
 
-  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
+  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage, summary);
   const response = await provider.chat(messages);
 
   const skipKeywords = ["生成奖章", "直接生成", "可以了", "总结", "generate medal"];
@@ -87,6 +96,7 @@ export async function* streamConversation(
   runtime?: AgentRuntimeConfig | null,
   tools?: ToolRegistry | null,
   context?: ToolContext,
+  summary?: string,
 ): AsyncGenerator<string, void, unknown> {
   const systemPrompt = runtime?.system_prompt || conversationFollowupPromptV1.template;
   const provider = getLLMProviderFromRuntime(runtime);
@@ -99,6 +109,7 @@ export async function* streamConversation(
       history,
       userMessage,
       context,
+      summary,
     );
     return;
   }
@@ -110,26 +121,38 @@ export async function* streamConversation(
     return;
   }
 
-  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage);
+  const messages: ChatMessage[] = buildChatMessages(systemPrompt, history, userMessage, summary);
   yield* provider.stream(messages);
 }
 
 /**
  * Build the chat message array from system prompt, history, and current user message.
+ * If a summary exists, it's inserted as a system message after the main prompt.
  */
 function buildChatMessages(
   systemPrompt: string,
   history: { role: "user" | "assistant"; content: string }[],
   userMessage: string,
+  summary?: string,
 ): ChatMessage[] {
-  return [
-    { role: "system", content: systemPrompt },
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
+
+  if (summary) {
+    messages.push({
+      role: "system",
+      content: `之前的对话摘要：\n${summary}`,
+    });
+  }
+
+  messages.push(
     ...history.map((h) => ({
       role: h.role === "user" ? ("user" as const) : ("assistant" as const),
       content: h.content,
     })),
-    { role: "user", content: userMessage },
-  ];
+  );
+  messages.push({ role: "user", content: userMessage });
+
+  return messages;
 }
 
 /**
