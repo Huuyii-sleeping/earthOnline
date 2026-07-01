@@ -233,6 +233,18 @@ export async function* runReActLoopStream(
     return;
   }
 
+  // Heuristic: most messages don't need tool calls. Simple greetings,
+  // short replies, and messages without history references can be
+  // streamed directly — this keeps TTFT (time to first token) low.
+  //
+  // Only substantive messages (>50 chars) or history-referencing messages
+  // go through the tool-calling path, which requires a non-streaming
+  // chatWithTools call first (adding 2-5s latency).
+  if (!shouldUseTools(userMessage, history)) {
+    yield* provider.streamFinalReply(messages);
+    return;
+  }
+
   // --- ReAct loop with two-phase streaming ---
   // Wrapped in try-catch to handle models that don't support native
   // function calling — falls back to prompt-based tool calling.

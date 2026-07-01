@@ -214,11 +214,14 @@ export class OpenAIProvider implements LLMProvider {
    *
    * Phase 1: non-streaming chatWithTools to decide if tools are needed.
    *   - If tool_calls: yield tool_calls chunk and return.
-   *   - If no tool_calls: yield the content as a single token chunk
-   *     (saves a second LLM call), then yield done.
+   *   - If no tool_calls: discard the non-streaming result and stream
+   *     the reply token by token via streamFinalReply. This gives the
+   *     user real typing feedback even when the tool-check phase ran.
    *
-   * The caller (agent loop) handles tool execution and calls streamFinalReply
-   * for the real token-by-token streaming of the final reply.
+   * Trade-off: discarding the non-streaming result costs one extra LLM
+   * call, but the TTFT (time to first token) improvement is worth it —
+   * the user sees the "thinking" indicator during phase 1, then
+   * immediately sees streaming text in phase 2.
    */
   async *streamWithTools(
     messages: ChatMessage[],
@@ -231,12 +234,10 @@ export class OpenAIProvider implements LLMProvider {
       return;
     }
 
-    // No tool calls — yield the content directly. No need for a second
-    // streaming call; we already have the full response.
-    if (result.content) {
-      yield { type: "token", content: result.content };
-    }
-    yield { type: "done", finish_reason: result.finish_reason ?? "stop" };
+    // No tool calls — re-stream for token-by-token output.
+    // The non-streaming result is discarded; we trade one extra LLM call
+    // for a much better user experience (typing effect vs. wall of text).
+    yield* this.streamFinalReply(messages);
   }
 
   /**
