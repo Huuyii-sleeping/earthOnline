@@ -54,8 +54,12 @@ type AgentRuntimePayload struct {
 
 // SendMessageResponse is what the Agent service returns for a non-streaming message.
 type SendMessageResponse struct {
-	Reply string `json:"reply"`
-	Done  bool   `json:"done"`
+	Reply               string   `json:"reply"`
+	Done                bool     `json:"done"`
+	ConversationState   string   `json:"conversation_state,omitempty"`
+	TurnCount           int      `json:"turn_count,omitempty"`
+	ProbeCount          int      `json:"probe_count,omitempty"`
+	CollectedDimensions []string `json:"collected_dimensions,omitempty"`
 }
 
 // SendMessage sends a user message to the Agent and gets a reply.

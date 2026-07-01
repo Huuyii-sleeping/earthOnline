@@ -210,6 +210,13 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Update session's conversation state if the Agent returned one
+	if agentResp.ConversationState != "" {
+		h.db.Model(&database.ConversationSession{}).
+			Where("id = ?", sessionID).
+			Update("current_state", agentResp.ConversationState)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
 			"user_message":  h.toMessageResponse(&userMsg),
@@ -314,10 +321,15 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 		payload := strings.TrimPrefix(line, "data: ")
 
 		var data struct {
-			Token string `json:"token"`
-			Done  bool   `json:"done"`
-			Reply string `json:"reply"`
-			Error string `json:"error"`
+			Token               string   `json:"token"`
+			Done                bool     `json:"done"`
+			Reply               string   `json:"reply"`
+			Error               string   `json:"error"`
+			Thinking            bool     `json:"thinking"`
+			ConversationState   string   `json:"conversation_state"`
+			TurnCount           int      `json:"turn_count"`
+			ProbeCount          int      `json:"probe_count"`
+			CollectedDimensions []string `json:"collected_dimensions"`
 		}
 		if err := json.Unmarshal([]byte(payload), &data); err != nil {
 			continue
@@ -330,6 +342,14 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 				flusher.Flush()
 			}
 			break
+		}
+
+		if data.Thinking {
+			thinkingJSON, _ := json.Marshal(map[string]any{"thinking": true})
+			c.Writer.Write([]byte("data: " + string(thinkingJSON) + "\n\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
 		}
 
 		if data.Token != "" {
@@ -358,10 +378,18 @@ func (h *ConversationHandler) SendMessageStream(c *gin.Context) {
 				h.logger.Error("failed to save agent message", "error", saveErr)
 			}
 
+			// Update session's conversation state
+			if data.ConversationState != "" {
+				h.db.Model(&database.ConversationSession{}).
+					Where("id = ?", sessionID).
+					Update("current_state", data.ConversationState)
+			}
+
 			doneJSON, _ := json.Marshal(map[string]any{
-				"done":             true,
-				"user_message_id":  userMsg.ID,
-				"agent_message_id": agentMsg.ID,
+				"done":               true,
+				"user_message_id":    userMsg.ID,
+				"agent_message_id":   agentMsg.ID,
+				"conversation_state": data.ConversationState,
 			})
 			c.Writer.Write([]byte("data: " + string(doneJSON) + "\n\n"))
 			if flusher != nil {

@@ -14,6 +14,13 @@ import type { ToolContext, ChatMessage } from "../../providers/types.js";
 import { runReActLoopStream } from "../../agent/react-loop.js";
 import { conversationFollowupPromptV1 } from "../../prompts/conversation-followup.v1.js";
 import { ContextCompressor } from "../../utils/context-compressor.js";
+import {
+  buildSystemPrompt,
+  transition,
+  initialState,
+  type StateContext,
+  type ConversationState,
+} from "../../agent/conversation-state.js";
 
 interface SendMessageBody {
   session_id: string;
@@ -136,8 +143,13 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
 
     try {
-      const systemPrompt =
-        body.agent_runtime?.system_prompt || conversationFollowupPromptV1.template;
+      // Build state context from request
+      const stateContext: StateContext = body.conversation_state
+        ? { ...initialState(), state: body.conversation_state as ConversationState }
+        : initialState();
+
+      const basePrompt = body.agent_runtime?.system_prompt || conversationFollowupPromptV1.template;
+      const systemPrompt = buildSystemPrompt(basePrompt, stateContext);
       const provider = getLLMProviderFromRuntime(body.agent_runtime);
 
       let fullReply = "";
@@ -154,7 +166,6 @@ export async function conversationRoutes(app: FastifyInstance) {
       )) {
         switch (chunk.type) {
           case "tool_calls":
-            // Tools are being called — notify frontend to show "thinking"
             hadToolCalls = true;
             writeSSE(reply.raw, { thinking: true });
             break;
@@ -163,12 +174,18 @@ export async function conversationRoutes(app: FastifyInstance) {
             writeSSE(reply.raw, { token: chunk.content });
             break;
           case "done":
+            // Compute the next conversation state
+            const nextState = transition(stateContext, body.content, fullReply);
             writeSSE(reply.raw, {
               done: true,
               reply: fullReply,
               session_id: sessionId,
               used_tools: hadToolCalls,
               finish_reason: chunk.finish_reason,
+              conversation_state: nextState.state,
+              turn_count: nextState.turnCount,
+              probe_count: nextState.probeCount,
+              collected_dimensions: nextState.collectedDimensions,
             });
             break;
         }
